@@ -1,9 +1,12 @@
 CMakeFiles
+build
 bin
 
 cmake_install.cmake
 CMakeCache.txt
 Makefile
 imgui.ini
+*.png
+*.bmp
 
 .vscode

@@ -4,15 +4,49 @@
 #include <SDL.h>
 #include <GL/glew.h>
 
+#include <glm/vec3.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/rotate_vector.hpp>
+
+#include <librealsense2/rs.hpp>
+#include <librealsense2/hpp/rs_internal.hpp>
+
+#include <opencv4/opencv2/highgui.hpp>
+
 #include "imgui.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_opengl3.h"
 
+#include "depthCamera.h"
+#include "pointcloudRenderer.h"
+#include "shaders/pointcloudShader.h"
+
+void GLAPIENTRY
+MessageCallback( GLenum source,
+                 GLenum type,
+                 GLuint id,
+                 GLenum severity,
+                 GLsizei length,
+                 const GLchar* message,
+                 const void* userParam )
+{
+  fprintf( stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
+           ( type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "" ),
+            type, severity, message );
+}
+
+struct PointcloudCameraRendererPair {
+    PointcloudRenderer* renderer;
+    DepthCamera* camera;
+    bool capture;
+};
 
 int main(int argc, char** argv) {
     int WIDTH = 800;
     int HEIGHT = 600;
 
+    // SDL setup
     if(SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cout << "Failed initialize video" << std::endl;
     }
@@ -29,6 +63,8 @@ int main(int argc, char** argv) {
         std::cout << "Unable to create window" << std::endl;
         return -1;
     }
+
+    SDL_SetWindowResizable(mainwindow, SDL_TRUE);
 
     SDL_GLContext gl_context = SDL_GL_CreateContext(mainwindow);
 
@@ -49,33 +85,115 @@ int main(int argc, char** argv) {
     ImGui_ImplSDL2_InitForOpenGL(mainwindow, gl_context);
     ImGui_ImplOpenGL3_Init("#version 130");
 
+    // Setup glew
     glewExperimental=true; // Needed in core profile
     if (glewInit() != GLEW_OK) {
         std::cout << "Failed to initialize GLEW" << std::endl;
         return -1;
     }
 
+    glEnable              ( GL_DEBUG_OUTPUT );
+    glDebugMessageCallback( MessageCallback, 0 );
+
+    glEnable(GL_DEPTH_TEST);
+
+    // Setup librealsense
+    rs2::context ctx;
+
+    std::cout << "hello from librealsense - " << RS2_API_VERSION_STR << std::endl;
+    std::cout << "You have " << ctx.query_devices().size() << " RealSense devices connected" << std::endl;
+
+    PointcloudShader* shader = new PointcloudShader();
+
+    std::vector<PointcloudCameraRendererPair> deviceList;
+    for(auto&& dev : ctx.query_devices()) {
+        std::cout << "Creating device" << std::endl;
+        DepthCamera* camera = new DepthCamera(dev);
+        PointcloudRenderer* renderer = new PointcloudRenderer(shader);
+
+        camera->begin();
+        deviceList.push_back(PointcloudCameraRendererPair {
+            .renderer = renderer,
+            .camera = camera,
+            .capture = true
+        });
+    }
+
+    // Render loop
     glClearColor(0.8, 0.8, 1.0, 1.0);
     bool should_run = true;
 
-    auto start = std::chrono::system_clock::now();
+    // For measuring frame time
+    static float values[90] = {};
+    static int values_offset = 0;
+
+    float yaw = 0.0f;
+    float pitch = 0.0f;
+
+    float storedYaw = 0.0f;
+    float storedPitch = 0.0f;
+
+    float zoom = 1.0f;
+
+    bool tracking_mouse = 0;
+    glm::ivec2 mouse_pos;
+
+    ImGuiIO& imguiIo = ImGui::GetIO();
+
     while(should_run) {
+        auto start = std::chrono::system_clock::now();
         // First listen for events from SDL
         SDL_Event event;
         while(SDL_PollEvent(&event)) {
             ImGui_ImplSDL2_ProcessEvent(&event);
+            if(imguiIo.WantCaptureMouse || imguiIo.WantCaptureKeyboard) {
+                continue;
+            }
+            int x, y;
             switch(event.type) {
                 case SDL_KEYUP:
                     if(event.key.keysym.sym == SDLK_ESCAPE) {
                         should_run = false;
                     }
+                    break;
                 case SDL_QUIT:
                     should_run = false;
+                    break;
+                case SDL_MOUSEBUTTONDOWN:
+                    tracking_mouse = true;
+                    SDL_GetMouseState(&x, &y);
+                    mouse_pos.x = x;
+                    mouse_pos.y = y;
+                    break;
+                case SDL_MOUSEMOTION:
+                    if(tracking_mouse) {
+                        SDL_GetMouseState(&x, &y);
+                        yaw = static_cast<float>(x-mouse_pos.x)*0.1f;
+                        pitch = static_cast<float>(y-mouse_pos.y)*0.1f;
+                    }
+                    break;
+                case SDL_MOUSEBUTTONUP:
+                    tracking_mouse = false;
+                    storedYaw += yaw;
+                    storedPitch += pitch;
+                    yaw = 0.0f;
+                    pitch = 0.0f;
+                    break;
+                case SDL_MOUSEWHEEL:
+                    if(event.wheel.y > 0) {
+                        zoom = zoom * 1.1f;
+                    } else {
+                        zoom = zoom / 1.1f;
+                    }
+                    break;
                 default:
                     //do nothing
                     {}
             }
         }
+
+        SDL_GetWindowSize(mainwindow, &WIDTH, &HEIGHT);
+        glViewport(0, 0, WIDTH, HEIGHT);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         ImGui_ImplOpenGL3_NewFrame();
@@ -85,16 +203,88 @@ int main(int argc, char** argv) {
         // GUI
         ImGui::Begin("RealSense test");
 
-        ImGui::Text("Hello");
+        glm::mat4 model(1.0f);
+        glm::mat4 view = glm::lookAt(
+            // Temp bs
+            glm::rotateY(glm::rotateX(glm::vec3(0.0f, 0.0f, 1.0f), glm::radians(pitch+storedPitch)), glm::radians(yaw+storedYaw))*zoom,
+            glm::vec3(0.0f, 0.0f, 0.0f),
+            glm::vec3(0.0f, -1.0f, 0.0f)
+        );
+        glm::mat4 projection = glm::perspective(
+            glm::radians(75.0f),
+            (float)WIDTH/(float)HEIGHT,
+            0.1f, 
+            100.0f
+        );
+
+        for(auto device : deviceList) {
+            DepthCamera* camera = device.camera;
+            ImGui::Text(("RealSense device: " + camera->getSerial()).c_str());
+            PointcloudRenderer* renderer = device.renderer;
+            rs2::frameset frame = camera->processFrame();
+
+            ImGui::Checkbox(("Capture " + camera->getSerial()).c_str(), &device.capture);
+            if(device.capture) {
+
+                camera->uploadTextures(frame);
+                rs2::points pointcloud = camera->processPointcloud(frame);
+                renderer->updateData(pointcloud);
+            }
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, camera->getColorTextureHandle());
+            renderer->render(camera->getCalibration(), view, projection);
+
+            if(ImGui::CollapsingHeader(("Textures: " + camera->getSerial()).c_str())) {
+                ImGui::Image((void*)(intptr_t)camera->getDepthTextureHandle(), ImVec2(600, 400));
+                ImGui::SameLine();
+                ImGui::Image((void*)(intptr_t)camera->getColorTextureHandle(), ImVec2(600, 400));
+            }
+            ImGui::Separator();
+        }
+
+        if(ImGui::CollapsingHeader("Performance")) {
+            {
+                float average = 0.0f;
+                for (int n = 0; n < IM_ARRAYSIZE(values); n++)
+                    average += values[n];
+                average /= (float)IM_ARRAYSIZE(values);
+                char overlay[32];
+                sprintf(overlay, "avg %f", average);
+                ImGui::PlotLines("Frame time", values, IM_ARRAYSIZE(values), values_offset, overlay, -1.0f, 1.0f, ImVec2(0, 80.0f));
+            }
+        }
+
+        if(ImGui::CollapsingHeader("OpenCV")) {
+            if(ImGui::Button("Generate ArUco board")) {
+                cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
+                cv::Ptr<cv::aruco::GridBoard> board = cv::aruco::GridBoard::create(6, 8, 0.04, 0.01, dictionary);
+                cv::Mat boardImage;
+                board->draw( cv::Size(794, 1123), boardImage, 1, 1 );
+                cv::imwrite("ArUco.bmp", boardImage);
+            }
+        }
+
         ImGui::End();
 
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
+        auto end = std::chrono::system_clock::now();
+        float elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+        values[values_offset] = elapsed_time;
+        values_offset = (values_offset + 1) % IM_ARRAYSIZE(values);
         SDL_GL_SwapWindow(mainwindow);
     }
+    for(auto device : deviceList) {
+        device.camera->end();
+        delete device.camera;
+        delete device.renderer;
+    }
 
+    delete shader;
 
     return 0;
 }
