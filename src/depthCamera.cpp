@@ -2,15 +2,14 @@
 
 #include <imgui.h>
 
-#include <opencv4/opencv2/highgui.hpp>
-#include <opencv4/opencv2/calib3d.hpp>
-
 #include <librealsense2/hpp/rs_device.hpp>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
 
 #include <iostream>
+
+#include "calibration.h"
 
 GLuint DepthCamera::buildTexture() {
     // Create a OpenGL texture identifier
@@ -33,80 +32,13 @@ GLuint DepthCamera::buildTexture() {
 
 rs2::frameset DepthCamera::processFrame() {
     rs2::frameset current_frameset = this->capturePipeline.wait_for_frames();
-    ImGui::Checkbox(("Enable OpenCV for " + this->getSerial()).c_str(), &this->openCvEnabled);
+    ImGui::Checkbox("Enable OpenCV", &this->openCvEnabled);
     if(this->openCvEnabled) {
+        // Align the color frame to the depth frame
+        rs2::align align_to_depth(RS2_STREAM_DEPTH);
+        current_frameset = align_to_depth.process(current_frameset);
         rs2::video_frame colorFrame = current_frameset.get_color_frame();
-        cv::Mat image = cv::Mat(colorFrame.get_width()*colorFrame.get_height(), 1, CV_8UC3, (void*)colorFrame.get_data()).clone().reshape(0, colorFrame.get_height());
-        cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
-        std::vector<int> ids;
-        std::vector<std::vector<cv::Point2f> > corners;
-        cv::aruco::detectMarkers(image, dictionary, corners, ids);
-        ImGui::Text("Detected markers: %ld", ids.size());
-
-        //Get camera intrinsics
-        rs2_intrinsics intrinsics = colorFrame.get_profile().as<rs2::video_stream_profile>().get_intrinsics();
-        if(ids.size() > 0) {
-            cv::Mat cameraMatrix = (cv::Mat_<float>(3,3) << 
-            intrinsics.fx, 0.0f, intrinsics.ppx, 
-            0.0f, intrinsics.fy, intrinsics.ppy,
-            0.0f, 0.0f, 1.0f);
-            cv::Mat distCoeffs = (cv::Mat_<float>(5,1) << 
-                intrinsics.coeffs[0],
-                intrinsics.coeffs[1],
-                intrinsics.coeffs[2],
-                intrinsics.coeffs[3],
-                intrinsics.coeffs[4]
-            );
-            cv::Vec3d rvec, tvec;
-            cv::Ptr<cv::aruco::GridBoard> board = cv::aruco::GridBoard::create(6, 8, 0.027, 0.0065, dictionary);
-            int valid = cv::aruco::estimatePoseBoard(corners, ids, board, cameraMatrix, distCoeffs, rvec, tvec);
-            if(valid > 0)
-                cv::drawFrameAxes(image, cameraMatrix, distCoeffs, rvec, tvec, 0.1);
-
-            ImGui::Text("Valid pose?: %s", valid > 0 ? "Yes" : "No");
-            if(valid > 0) {
-                ImGui::Text("tvec: %f %f %f", tvec[0], tvec[1], tvec[2]);
-                if(true || ImGui::Button(("Calibrate camera" + this->getSerial()).c_str())) {
-                    //cv::Mat rmat;
-                    //cv::Rodrigues(rvec, rmat);
-                    /*
-                    glm::mat4 rotation = glm::mat4(
-                        rmat.at<float>(0, 0), rmat.at<float>(1, 0), rmat.at<float>(2, 0), 0.0f,
-                        rmat.at<float>(0, 1), rmat.at<float>(1, 1), rmat.at<float>(2, 1), 0.0f,
-                        rmat.at<float>(0, 2), rmat.at<float>(1, 2), rmat.at<float>(2, 2), 0.0f,
-                        0.0f, 0.0f, 0.0f, 1.0f
-                    );
-                    */
-                    float x = rvec[0];
-                    float y = rvec[1];
-                    float z = rvec[2];
-                    float len = cv::norm(rvec);
-                    glm::mat4 rotation = glm::rotate(
-                        len,
-                        glm::normalize(glm::vec3(x, y, z))
-                    );
-                    glm::mat4 translation = glm::translate(
-                        glm::mat4(1.0f),
-                        //Hack
-                        glm::vec3(tvec[0]-0.0425f, tvec[1], tvec[2])
-                    );
-
-                    //rotation = glm::transpose(rotation);
-
-                    this->calibratedTransform = 
-                        glm::inverse(rotation) *
-                        glm::inverse(translation);
-                }
-            }
-        }
-
-        if(ImGui::Button("Save me some state, please")) {
-            // Draw the detected markers
-            if(ids.size() > 0) {
-                cv::aruco::drawDetectedMarkers(image, corners, ids);
-            }
-            cv::imwrite("state.png", image);
-        }
+        tryCalibrateCameraPosition(this->calibratedTransform, colorFrame);
     }
     return current_frameset;
 }
@@ -141,6 +73,7 @@ void DepthCamera::depthCameraThread(DepthCamera* camera) {
 }
 */
 
+
 DepthCamera::DepthCamera(rs2::device device): device(device), calibratedTransform(1.0f) {
     // Buffer to use to display from camera
     this->colorTexture = DepthCamera::buildTexture();
@@ -150,7 +83,9 @@ DepthCamera::DepthCamera(rs2::device device): device(device), calibratedTransfor
     std::cout << "Depth texture " << this->depthTexture << std::endl;
 
     this->config.enable_device(this->device.get_info(rs2_camera_info::RS2_CAMERA_INFO_SERIAL_NUMBER));
-    this->config.enable_all_streams();
+    //this->config.enable_all_streams();
+    this->config.enable_stream(RS2_STREAM_COLOR, 1920, 1080, RS2_FORMAT_RGB8, 30);
+    this->config.enable_stream(RS2_STREAM_DEPTH, 1280, 720, RS2_FORMAT_Z16, 30);
 }
 
 DepthCamera::~DepthCamera() {

@@ -3,9 +3,6 @@
 
 #include <librealsense2/rs.hpp>
 
-#include <opencv4/opencv2/core.hpp>
-#include <opencv4/opencv2/aruco.hpp>
-
 #include <glm/mat4x4.hpp>
 
 class DepthCamera {
@@ -23,9 +20,8 @@ class DepthCamera {
     rs2::pipeline capturePipeline;
 
     // The abillity to enable and disable OpenCV activities
-    bool openCvEnabled = false;
+    bool openCvEnabled = true;
     glm::mat4 calibratedTransform;
-    float cameraOffset = 0.0f;
 
     //static void depthCameraThread(DepthCamera* camera);
     static GLuint buildTexture();

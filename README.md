@@ -14,6 +14,7 @@ Uses OpenCV to determine camera positions relative to a ArUco board so you can c
 ## Building
 
 ```
+git submodule update --init --recursive
 cmake .
 make
 ```

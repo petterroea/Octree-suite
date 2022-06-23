@@ -42,12 +42,17 @@ PointcloudRenderer::~PointcloudRenderer() {
     glDeleteBuffers(1, &this->texCoordBuffer);
 }
 
-void PointcloudRenderer::render(glm::mat4x4& model, glm::mat4x4& view, glm::mat4x4& proj) {
+void PointcloudRenderer::render(glm::mat4x4& model, glm::mat4x4& view, glm::mat4x4& projection) {
     glUseProgram(this->shader->getHandle());
 
-    glUniformMatrix4fv(this->shader->getModelTransformUniformLocation(), 1, GL_FALSE, (const GLfloat*) &model);
-    glUniformMatrix4fv(this->shader->getViewTransformUniformLocation(), 1, GL_FALSE, (const GLfloat*) &view);
-    glUniformMatrix4fv(this->shader->getProjectionTraosformUniformLocation(), 1, GL_FALSE, (const GLfloat*) &proj);
+    // Transpose matrixes since GLM matrixes are column major
+    glm::mat4x4 model_transposed = glm::transpose(model);
+    glm::mat4x4 view_transposed = glm::transpose(view);
+    glm::mat4x4 projection_transposed = glm::transpose(projection);
+
+    glUniformMatrix4fv(this->shader->getModelTransformUniformLocation(), 1, GL_FALSE, (const GLfloat*) &model_transposed);
+    glUniformMatrix4fv(this->shader->getViewTransformUniformLocation(), 1, GL_FALSE, (const GLfloat*) &view_transposed);
+    glUniformMatrix4fv(this->shader->getProjectionTraosformUniformLocation(), 1, GL_FALSE, (const GLfloat*) &projection_transposed);
     glUniform1i(this->shader->getTextureLocation(), 0);
     
     glBindVertexArray(this->vao);

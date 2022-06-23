@@ -13,6 +13,7 @@
 #include <librealsense2/hpp/rs_internal.hpp>
 
 #include <opencv4/opencv2/highgui.hpp>
+#include <opencv4/opencv2/core.hpp>
 
 #include "imgui.h"
 #include "imgui_impl_sdl.h"
@@ -21,6 +22,8 @@
 #include "depthCamera.h"
 #include "pointcloudRenderer.h"
 #include "shaders/pointcloudShader.h"
+
+#include "calibration.h"
 
 void GLAPIENTRY
 MessageCallback( GLenum source,
@@ -219,11 +222,12 @@ int main(int argc, char** argv) {
 
         for(auto device : deviceList) {
             DepthCamera* camera = device.camera;
+            ImGui::PushID(camera->getSerial().c_str());
             ImGui::Text(("RealSense device: " + camera->getSerial()).c_str());
             PointcloudRenderer* renderer = device.renderer;
             rs2::frameset frame = camera->processFrame();
 
-            ImGui::Checkbox(("Capture " + camera->getSerial()).c_str(), &device.capture);
+            ImGui::Checkbox("Capture", &device.capture);
             if(device.capture) {
 
                 camera->uploadTextures(frame);
@@ -235,12 +239,13 @@ int main(int argc, char** argv) {
             glBindTexture(GL_TEXTURE_2D, camera->getColorTextureHandle());
             renderer->render(camera->getCalibration(), view, projection);
 
-            if(ImGui::CollapsingHeader(("Textures: " + camera->getSerial()).c_str())) {
+            if(ImGui::CollapsingHeader("Textures")) {
                 ImGui::Image((void*)(intptr_t)camera->getDepthTextureHandle(), ImVec2(600, 400));
                 ImGui::SameLine();
                 ImGui::Image((void*)(intptr_t)camera->getColorTextureHandle(), ImVec2(600, 400));
             }
             ImGui::Separator();
+            ImGui::PopID();
         }
 
         if(ImGui::CollapsingHeader("Performance")) {
@@ -257,10 +262,8 @@ int main(int argc, char** argv) {
 
         if(ImGui::CollapsingHeader("OpenCV")) {
             if(ImGui::Button("Generate ArUco board")) {
-                cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
-                cv::Ptr<cv::aruco::GridBoard> board = cv::aruco::GridBoard::create(6, 8, 0.04, 0.01, dictionary);
                 cv::Mat boardImage;
-                board->draw( cv::Size(794, 1123), boardImage, 1, 1 );
+                openCVCalibrationBoard->draw( cv::Size(794, 1123), boardImage, 1, 1 );
                 cv::imwrite("ArUco.bmp", boardImage);
             }
         }

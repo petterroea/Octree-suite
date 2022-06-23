@@ -15,7 +15,7 @@ uniform mat4 projection;
 
 out vec2 texcoord_to_frag;
 void main() {
-    gl_Position = projection*view*model*vec4(vertexPosition, 1.0f);
+    gl_Position = vec4(vertexPosition, 1.0f)*model*view*projection;
     texcoord_to_frag = texcoord;
     //gl_Position.w = 0.0;
 }
