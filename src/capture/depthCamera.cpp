@@ -71,18 +71,6 @@ void DepthCamera::drawImmediateGui() {
 
     this->calibrator.drawImmediateGui();
 }
-/*
-void DepthCamera::depthCameraThread(DepthCamera* camera) {
-    // Create a dedicated pipeline and enable it
-
-    while(camera->shouldRunThread) {
-        // Update textures using realsense data
-
-        camera->current_frameset = current;
-    }
-}
-*/
-
 
 DepthCamera::DepthCamera(rs2::device device, bool master): device(device), calibratedTransform(1.0f) {
     // Buffer to use to display from camera
@@ -112,14 +100,13 @@ void DepthCamera::begin() {
 }
 
 void DepthCamera::end() {
-    this->capturePipeline.stop();
     this->running = false;
     // Make sure the loop gets to finish
     this->requestFrame();
 }
 
 void DepthCamera::waitForThreadJoin() {
-    pthread_join(this->hThread , NULL);
+    pthread_join(this->hThread, NULL);
 }
 
 void DepthCamera::threadEntrypoint(DepthCamera* self) {
@@ -133,15 +120,27 @@ void DepthCamera::processingThread() {
     this->config.enable_stream(RS2_STREAM_DEPTH, 1280, 720, RS2_FORMAT_Z16, 30);
 
     this->capturePipeline.start(this->config);
-    while(running) {
+    while(this->running) {
         sem_wait(&this->frameRequestSemaphore);
+
+        auto start = std::chrono::system_clock::now();
         std::cout << this->getSerial() << "Frame requested" << std::endl;
 
         this->processFrame();
+        auto processing_end = std::chrono::system_clock::now();
         this->lastPointcloud = this->processPointcloud(lastFrame);
+        auto pointcloud_end = std::chrono::system_clock::now();
+
+        auto end = std::chrono::system_clock::now();
+        float elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        float processing_time = std::chrono::duration_cast<std::chrono::milliseconds>(processing_end- start).count();
+        float pointcloud_time = std::chrono::duration_cast<std::chrono::milliseconds>(pointcloud_end - processing_end).count();
+        std::cout << this->getSerial() << " completed processing in " << elapsed_time << "ms (processing " << processing_time << " pointcloud " << pointcloud_time << ")" << std::endl;
 
         sem_post(&this->frameReceivedSemaphore);
     }
+    std::cout << this->getSerial() << " shutting down" << std::endl;
+    this->capturePipeline.stop();
 }
 
 void DepthCamera::requestFrame() {

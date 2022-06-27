@@ -96,6 +96,8 @@ void OctreeCapture::displayGui() {
     if(ImGui::Button("Capture a frame")) {
 
     }
+
+    ImGui::End();
 }
 
 void OctreeCapture::renderHelpLines(glm::mat4& view, glm::mat4& projection) {
