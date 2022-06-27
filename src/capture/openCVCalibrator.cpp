@@ -1,7 +1,7 @@
-#include "calibration.h"
+#include "openCVCalibrator.h"
 
-#include <opencv4/opencv2/highgui.hpp>
-#include <opencv4/opencv2/calib3d.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/calib3d.hpp>
 
 #include <imgui.h>
 
@@ -18,13 +18,13 @@ glm::vec3 sensorOffset(0.0f, 0.0f, 0.0f);
 cv::Ptr<cv::aruco::Dictionary> openCVCalibrationDictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
 cv::Ptr<cv::aruco::GridBoard> openCVCalibrationBoard = cv::aruco::GridBoard::create(6, 8, 0.027, 0.0065, openCVCalibrationDictionary);
 
-bool tryCalibrateCameraPosition(glm::mat4& transform, rs2::video_frame& frame) {
+bool OpenCVCalibrator::tryCalibrateCameraPosition(glm::mat4& transform, rs2::video_frame& frame) {
     bool success = false;
     cv::Mat image = cv::Mat(frame.get_width()*frame.get_height(), 1, CV_8UC3, (void*)frame.get_data()).clone().reshape(0, frame.get_height());
     std::vector<int> ids;
     std::vector<std::vector<cv::Point2f> > corners;
     cv::aruco::detectMarkers(image, openCVCalibrationDictionary, corners, ids);
-    ImGui::Text("Detected markers: %ld", ids.size());
+    this->lastDetectedMarkers = ids.size();
 
     //Get camera intrinsics
     rs2_intrinsics intrinsics = frame.get_profile().as<rs2::video_stream_profile>().get_intrinsics();
@@ -40,44 +40,42 @@ bool tryCalibrateCameraPosition(glm::mat4& transform, rs2::video_frame& frame) {
             intrinsics.coeffs[3],
             intrinsics.coeffs[4]
         );
-        cv::Vec3d rvec, tvec;
+        cv::Vec3d rvec;
         int valid = cv::aruco::estimatePoseBoard(corners, ids, openCVCalibrationBoard, cameraMatrix, distCoeffs, rvec, tvec);
+        this->isValidPose = valid > 0;
+
         if(valid > 0)
             cv::drawFrameAxes(image, cameraMatrix, distCoeffs, rvec, tvec, 0.1);
 
-        ImGui::Text("Valid pose?: %s", valid > 0 ? "Yes" : "No");
         if(valid > 0) {
-            ImGui::Text("tvec: %f %f %f", tvec[0], tvec[1], tvec[2]);
-            if(true || ImGui::Button("Calibrate camera")) {
-                float x = rvec[0];
-                float y = rvec[1];
-                float z = rvec[2];
-                float len = cv::norm(rvec);
-                glm::mat4 rotation = glm::rotate(
-                    len,
-                    glm::normalize(glm::vec3(x, y, z))
-                );
-                glm::mat4 translation = glm::translate(
-                    glm::mat4(1.0f),
-                    //Hack
-                    glm::vec3(tvec[0], tvec[1], tvec[2])
-                );
+            float x = rvec[0];
+            float y = rvec[1];
+            float z = rvec[2];
+            float len = cv::norm(rvec);
+            glm::mat4 rotation = glm::rotate(
+                len,
+                glm::normalize(glm::vec3(x, y, z))
+            );
+            glm::mat4 translation = glm::translate(
+                glm::mat4(1.0f),
+                //Hack
+                glm::vec3(tvec[0], tvec[1], tvec[2])
+            );
 
-                ImGui::SliderFloat3("Sensor offset", (float*)&sensorOffset, -0.5f, 0.5f);
-                glm::mat4 sensorTranslation = glm::translate(
-                    glm::mat4(1.0f),
-                    sensorOffset
-                );
-                transform = 
-                    glm::inverse(rotation) *
-                    glm::inverse(translation) *
-                    sensorTranslation;
-                success = true;
-            }
+            glm::mat4 sensorTranslation = glm::translate(
+                glm::mat4(1.0f),
+                sensorOffset
+            );
+            transform = 
+                glm::inverse(rotation) *
+                glm::inverse(translation) *
+                sensorTranslation;
+            success = true;
         }
     }
 
-    if(ImGui::Button("Save me some state, please")) {
+    if(this->saveState) {
+        this->saveState = false;
         // Draw the detected markers
         if(ids.size() > 0) {
             cv::aruco::drawDetectedMarkers(image, corners, ids);
@@ -85,4 +83,16 @@ bool tryCalibrateCameraPosition(glm::mat4& transform, rs2::video_frame& frame) {
         cv::imwrite("state.png", image);
     }
     return success;
+}
+
+void OpenCVCalibrator::drawImmediateGui() {
+    ImGui::Text("Detected markers: %d", this->lastDetectedMarkers);
+    ImGui::Text("Valid pose?: %s", isValidPose ? "Yes" : "No");
+    if(isValidPose) {
+        ImGui::Text("tvec: %f %f %f", tvec[0], tvec[1], tvec[2]);
+    }
+    ImGui::SliderFloat3("Sensor offset", (float*)&sensorOffset, -0.5f, 0.5f);
+    if(ImGui::Button("Save me some state, please")) {
+        this->saveState = true;
+    }
 }

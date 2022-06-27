@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
 
 # set the project name
-project(RealsenseDemo)
+project(OctreeMaster)
+
+set(CAPTURE_EXECUTABLE_NAME ${PROJECT_NAME}Capture)
+set(PLAYBACK_EXECUTABLE_NAME ${PROJECT_NAME}Playback)
 
 # Have some standards
 set(CMAKE_CXX_STANDARD 11)
@@ -47,9 +50,19 @@ include_directories(${PROJECT_NAME} ${IMGUI_SOURCE_DIR} ${IMGUI_BACKENDS_DIR})
 
 
 #aux_source_directory(src DIR_SRCS)
-file(GLOB_RECURSE DIR_SRCS src/**/*.cpp src/*.cpp)
-add_executable(${PROJECT_NAME} ${DIR_SRCS} ${IMGUI_SOURCE_FILES})
-target_link_libraries(${PROJECT_NAME} ${SDL2_LIBRARIES})
-target_link_libraries(${PROJECT_NAME} GL)
-target_link_libraries(${PROJECT_NAME} ${realsense2_LIBRARY})
-target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
+
+file(GLOB_RECURSE DIR_LIB_SRC src/lib/**/*.cpp src/lib/*.cpp)
+
+# Define the capture executable
+file(GLOB_RECURSE DIR_CAPTURE_SRCS src/capture/**/*.cpp src/capture/*.cpp)
+add_executable(${CAPTURE_EXECUTABLE_NAME} ${DIR_CAPTURE_SRCS} ${DIR_LIB_SRC} ${IMGUI_SOURCE_FILES})
+target_link_libraries(${CAPTURE_EXECUTABLE_NAME} ${SDL2_LIBRARIES})
+target_link_libraries(${CAPTURE_EXECUTABLE_NAME} GL)
+target_link_libraries(${CAPTURE_EXECUTABLE_NAME} ${realsense2_LIBRARY})
+target_link_libraries(${CAPTURE_EXECUTABLE_NAME} ${OpenCV_LIBS})
+
+# Define the playback executable
+file(GLOB_RECURSE DIR_PLAYBACK_SRCS src/playback/**/*.cpp src/playback/*.cpp)
+add_executable(${PLAYBACK_EXECUTABLE_NAME} ${DIR_PLAYBACK_SRCS} ${DIR_LIB_SRC} ${IMGUI_SOURCE_FILES})
+target_link_libraries(${PLAYBACK_EXECUTABLE_NAME} ${SDL2_LIBRARIES})
+target_link_libraries(${PLAYBACK_EXECUTABLE_NAME} GL)

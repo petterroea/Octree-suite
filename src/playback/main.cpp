@@ -12,18 +12,9 @@
 #include <librealsense2/rs.hpp>
 #include <librealsense2/hpp/rs_internal.hpp>
 
-#include <opencv4/opencv2/highgui.hpp>
-#include <opencv4/opencv2/core.hpp>
-
 #include "imgui.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_opengl3.h"
-
-#include "depthCamera.h"
-#include "pointcloudRenderer.h"
-#include "shaders/pointcloudShader.h"
-
-#include "calibration.h"
 
 void GLAPIENTRY
 MessageCallback( GLenum source,
@@ -38,12 +29,6 @@ MessageCallback( GLenum source,
            ( type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "" ),
             type, severity, message );
 }
-
-struct PointcloudCameraRendererPair {
-    PointcloudRenderer* renderer;
-    DepthCamera* camera;
-    bool capture;
-};
 
 int main(int argc, char** argv) {
     int WIDTH = 800;
@@ -60,7 +45,7 @@ int main(int argc, char** argv) {
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-    SDL_Window* mainwindow = SDL_CreateWindow("Realsense demo", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+    SDL_Window* mainwindow = SDL_CreateWindow("Octree capture playback", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
     if (!mainwindow) {/* Die if creation failed */
         std::cout << "Unable to create window" << std::endl;
@@ -101,28 +86,6 @@ int main(int argc, char** argv) {
     glEnable(GL_DEPTH_TEST);
 
     // Setup librealsense
-    rs2::context ctx;
-
-    std::cout << "hello from librealsense - " << RS2_API_VERSION_STR << std::endl;
-    std::cout << "You have " << ctx.query_devices().size() << " RealSense devices connected" << std::endl;
-
-    PointcloudShader* shader = new PointcloudShader();
-
-    std::vector<PointcloudCameraRendererPair> deviceList;
-    for(auto&& dev : ctx.query_devices()) {
-        std::cout << "Creating device" << std::endl;
-        DepthCamera* camera = new DepthCamera(dev);
-        PointcloudRenderer* renderer = new PointcloudRenderer(shader);
-
-        camera->begin();
-        deviceList.push_back(PointcloudCameraRendererPair {
-            .renderer = renderer,
-            .camera = camera,
-            .capture = true
-        });
-    }
-
-    // Render loop
     glClearColor(0.8, 0.8, 1.0, 1.0);
     bool should_run = true;
 
@@ -204,7 +167,7 @@ int main(int argc, char** argv) {
         ImGui::NewFrame();
 
         // GUI
-        ImGui::Begin("RealSense test");
+        ImGui::Begin("Playback");
 
         glm::mat4 model(1.0f);
         glm::mat4 view = glm::lookAt(
@@ -220,51 +183,23 @@ int main(int argc, char** argv) {
             100.0f
         );
 
-        for(auto device : deviceList) {
-            DepthCamera* camera = device.camera;
-            ImGui::PushID(camera->getSerial().c_str());
-            ImGui::Text(("RealSense device: " + camera->getSerial()).c_str());
-            PointcloudRenderer* renderer = device.renderer;
-            rs2::frameset frame = camera->processFrame();
-
-            ImGui::Checkbox("Capture", &device.capture);
-            if(device.capture) {
-
-                camera->uploadTextures(frame);
-                rs2::points pointcloud = camera->processPointcloud(frame);
-                renderer->updateData(pointcloud);
-            }
-
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, camera->getColorTextureHandle());
-            renderer->render(camera->getCalibration(), view, projection);
-
-            if(ImGui::CollapsingHeader("Textures")) {
-                ImGui::Image((void*)(intptr_t)camera->getDepthTextureHandle(), ImVec2(600, 400));
-                ImGui::SameLine();
-                ImGui::Image((void*)(intptr_t)camera->getColorTextureHandle(), ImVec2(600, 400));
-            }
-            ImGui::Separator();
-            ImGui::PopID();
-        }
-
         if(ImGui::CollapsingHeader("Performance")) {
             {
                 float average = 0.0f;
-                for (int n = 0; n < IM_ARRAYSIZE(values); n++)
+                float min = 1000.0f;
+                float max = 0.0f;
+                for (int n = 0; n < IM_ARRAYSIZE(values); n++) {
                     average += values[n];
-                average /= (float)IM_ARRAYSIZE(values);
-                char overlay[32];
-                sprintf(overlay, "avg %f", average);
-                ImGui::PlotLines("Frame time", values, IM_ARRAYSIZE(values), values_offset, overlay, -1.0f, 1.0f, ImVec2(0, 80.0f));
-            }
-        }
+                    if(values[n] > max)
+                        max = values[n];
+                    if(values[n] < min) 
+                        min = values[n];
+                }
 
-        if(ImGui::CollapsingHeader("OpenCV")) {
-            if(ImGui::Button("Generate ArUco board")) {
-                cv::Mat boardImage;
-                openCVCalibrationBoard->draw( cv::Size(794, 1123), boardImage, 1, 1 );
-                cv::imwrite("ArUco.bmp", boardImage);
+                average /= (float)IM_ARRAYSIZE(values);
+                char overlay[128];
+                sprintf(overlay, "min %f avg %f max %f", min, average, max);
+                ImGui::PlotLines("Frame time", values, IM_ARRAYSIZE(values), values_offset, overlay, 0.0f, max*1.1f, ImVec2(0, 80.0f));
             }
         }
 
@@ -281,13 +216,6 @@ int main(int argc, char** argv) {
         values_offset = (values_offset + 1) % IM_ARRAYSIZE(values);
         SDL_GL_SwapWindow(mainwindow);
     }
-    for(auto device : deviceList) {
-        device.camera->end();
-        delete device.camera;
-        delete device.renderer;
-    }
-
-    delete shader;
 
     return 0;
 }
