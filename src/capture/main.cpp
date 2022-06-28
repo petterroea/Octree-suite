@@ -19,6 +19,8 @@
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_opengl3.h"
 
+#include "main.h"
+
 #include "depthCamera.h"
 #include "pointcloudRenderer.h"
 #include "shaders/pointcloudShader.h"
@@ -40,11 +42,6 @@ MessageCallback( GLenum source,
             type, severity, message );
 }
 
-struct PointcloudCameraRendererPair {
-    PointcloudRenderer* renderer;
-    DepthCamera* camera;
-    bool capture;
-};
 
 int main(int argc, char** argv) {
     int WIDTH = 800;
@@ -96,8 +93,8 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    glEnable              ( GL_DEBUG_OUTPUT );
-    glDebugMessageCallback( MessageCallback, 0 );
+    //glEnable              ( GL_DEBUG_OUTPUT );
+    //glDebugMessageCallback( MessageCallback, 0 );
 
     glEnable(GL_DEPTH_TEST);
 
@@ -294,7 +291,7 @@ int main(int argc, char** argv) {
 
         ImGui::End();
 
-        capture.displayGui();
+        capture.displayGui(deviceList);
         capture.renderHelpLines(view, projection);
 
 

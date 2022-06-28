@@ -183,28 +183,27 @@ int main(int argc, char** argv) {
             100.0f
         );
 
-        if(ImGui::CollapsingHeader("Performance")) {
-            {
-                float average = 0.0f;
-                float min = 1000.0f;
-                float max = 0.0f;
-                for (int n = 0; n < IM_ARRAYSIZE(values); n++) {
-                    average += values[n];
-                    if(values[n] > max)
-                        max = values[n];
-                    if(values[n] < min) 
-                        min = values[n];
-                }
-
-                average /= (float)IM_ARRAYSIZE(values);
-                char overlay[128];
-                sprintf(overlay, "min %f avg %f max %f", min, average, max);
-                ImGui::PlotLines("Frame time", values, IM_ARRAYSIZE(values), values_offset, overlay, 0.0f, max*1.1f, ImVec2(0, 80.0f));
-            }
-        }
-
         ImGui::End();
 
+        ImGui::Begin("Performance");
+
+        float average = 0.0f;
+        float min = 1000.0f;
+        float max = 0.0f;
+        for (int n = 0; n < IM_ARRAYSIZE(values); n++) {
+            average += values[n];
+            if(values[n] > max)
+                max = values[n];
+            if(values[n] < min) 
+                min = values[n];
+        }
+
+        average /= (float)IM_ARRAYSIZE(values);
+        char overlay[128];
+        sprintf(overlay, "min %fms avg %fms (%f fps) max %fms", min, average, 1000.0f/average, max);
+        ImGui::PlotLines("Frame time", values, IM_ARRAYSIZE(values), values_offset, overlay, 0.0f, max*1.1f, ImVec2(0, 80.0f));
+
+        ImGui::End();
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

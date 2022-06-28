@@ -1,3 +1,5 @@
+#pragma once
+
 #include <GL/glew.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -59,6 +61,7 @@ public:
 
     void uploadTextures();
     rs2::points getLastPointcloud();
+    rs2::frameset getLastFrame() { return this->lastFrame; }
     glm::mat4& getCalibration() { return this->calibratedTransform; }
 
     void drawImmediateGui();

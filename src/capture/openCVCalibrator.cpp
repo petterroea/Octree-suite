@@ -16,7 +16,7 @@ glm::vec3 sensorOffset(0.0f, 0.0f, 0.0f);
 // Just store these as static variables
 // Some global truths about the arucoboard we are using
 cv::Ptr<cv::aruco::Dictionary> openCVCalibrationDictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
-cv::Ptr<cv::aruco::GridBoard> openCVCalibrationBoard = cv::aruco::GridBoard::create(6, 8, 0.027, 0.0065, openCVCalibrationDictionary);
+cv::Ptr<cv::aruco::GridBoard> openCVCalibrationBoard = cv::aruco::GridBoard::create(6, 8, 4.0f/100.0f, 0.95/100.0f, openCVCalibrationDictionary);
 
 bool OpenCVCalibrator::tryCalibrateCameraPosition(glm::mat4& transform, rs2::video_frame& frame) {
     bool success = false;
