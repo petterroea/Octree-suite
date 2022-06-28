@@ -93,8 +93,8 @@ OctreeCapture::OctreeCapture(): capturePosition(0.0f, 0.0f, 0.0f), lineRendererS
 void OctreeCapture::displayGui(std::vector<PointcloudCameraRendererPair*> cameras) {
     ImGui::Begin("Capture settings");
     if(ImGui::CollapsingHeader("Bounds")) {
-        ImGui::SliderFloat3("Offset", (float*)&this->capturePosition, -3.0f, 3.0f);
-        ImGui::SliderFloat("Scale", &this->captureScale, 0.1f, 3.0f);
+        ImGui::SliderFloat3("Offset", (float*)&this->capturePosition, -1.5f, 1.5f);
+        ImGui::SliderFloat("Scale", &this->captureScale, 0.1f, 2.5f);
     }
     ImGui::Separator();
     if(ImGui::Button("Capture a frame")) {
@@ -179,13 +179,24 @@ void OctreeCapture::captureScene(std::vector<PointcloudCameraRendererPair*> came
     //Serialize and store
     std::ofstream treefile;
     treefile.open("octree.oct", std::ios::binary);
+
+    unsigned int magic = 0xdeadbeef;
+    treefile.write((char*)&magic, sizeof(unsigned int));
+
     char version = 1;
     treefile.write(&version, sizeof(char));
+    // This will be filled in later
 
-    int writeHead = 1;
+    int writeHead = 0;
     int rootLocation = 0;
+    treefile.write((char*)&rootLocation, sizeof(int));
 
     this->serialize(&root, treefile, &writeHead, &rootLocation);
+
+    // Write where the root is
+    treefile.seekp(5);
+    treefile.write((char*)&rootLocation, sizeof(int));
+
     treefile.close();
 
     std::cout << "Completed serialization, root is at " << rootLocation << std::endl;
@@ -204,7 +215,6 @@ void OctreeCapture::captureScene(std::vector<PointcloudCameraRendererPair*> came
 
 glm::vec3 OctreeCapture::serialize(Octree<SizedArray<Point>>* node, std::ofstream &treefile, int* writeHead, int* nodeLocation) {
     // Different count from what the octree reports, as we ignore empty children
-    std::cout << "node" << std::endl;
     unsigned char childCount = 0;
     unsigned char childFlags = 0;
     int offsets[8];

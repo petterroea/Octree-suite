@@ -9,12 +9,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
-#include <librealsense2/rs.hpp>
-#include <librealsense2/hpp/rs_internal.hpp>
-
 #include "imgui.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_opengl3.h"
+
+#include "octreeLoad.h"
 
 void GLAPIENTRY
 MessageCallback( GLenum source,
@@ -105,6 +104,8 @@ int main(int argc, char** argv) {
     glm::ivec2 mouse_pos;
 
     ImGuiIO& imguiIo = ImGui::GetIO();
+
+    Octree<glm::vec3>* octree = loadOctree("captures/self_portrait.oct");
 
     while(should_run) {
         auto start = std::chrono::system_clock::now();
