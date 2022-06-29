@@ -141,12 +141,12 @@ void OctreeCapture::captureScene(std::vector<PointcloudCameraRendererPair*> came
 
             // Color sampling
             int img_x = static_cast<int>(texcoords[i].u*(float)colorFrame.get_width());
-            int img_y = static_cast<int>(texcoords[i].v*(float)colorFrame.get_height())-colorFrame.get_height();
+            int img_y = static_cast<int>(texcoords[i].v*(float)colorFrame.get_height());
 
-            int image_idx = img_x+img_y*colorFrame.get_width()*3;
-            char r = ((char*)colorFrame.get_data())[image_idx];
-            char g = ((char*)colorFrame.get_data())[image_idx+1];
-            char b = ((char*)colorFrame.get_data())[image_idx+2];
+            int image_idx = (img_x+img_y*colorFrame.get_width())*3;
+            unsigned char r = ((unsigned char*)colorFrame.get_data())[image_idx];
+            unsigned char g = ((unsigned char*)colorFrame.get_data())[image_idx+1];
+            unsigned char b = ((unsigned char*)colorFrame.get_data())[image_idx+2];
             glm::vec3 sampled_color = glm::vec3(
                 static_cast<float>(r)/255.0f,
                 static_cast<float>(g)/255.0f,
@@ -248,12 +248,10 @@ glm::vec3 OctreeCapture::serialize(Octree<SizedArray<Point>>* node, std::ofstrea
         avgColor = avgColor / static_cast<float>(childCount);
     }
 
-    char r = static_cast<unsigned char>(avgColor.x*255.0f);
-    char g = static_cast<unsigned char>(avgColor.y*255.0f);
-    char b = static_cast<unsigned char>(avgColor.z*255.0f);
+    unsigned char r = static_cast<unsigned char>(avgColor.x*255.0f);
+    unsigned char g = static_cast<unsigned char>(avgColor.y*255.0f);
+    unsigned char b = static_cast<unsigned char>(avgColor.z*255.0f);
 
-    char* aaa = "a";
-    char* bbb = "l";
     *nodeLocation = *writeHead;
     //treefile.write(leaf ? bbb : aaa,  1);
     treefile.write((char*)&childCount, sizeof(unsigned char));
@@ -266,6 +264,7 @@ glm::vec3 OctreeCapture::serialize(Octree<SizedArray<Point>>* node, std::ofstrea
     return avgColor;
 }
 
+int FILL_DEPTH=8;
 void OctreeCapture::boxSort(Octree<SizedArray<Point>>* node, int level, int maxLevel) {
     if(level == maxLevel) {
 //#ifdef OCTREE_LOG
@@ -273,7 +272,7 @@ void OctreeCapture::boxSort(Octree<SizedArray<Point>>* node, int level, int maxL
 //#endif
         return;
     }
-    if(node->getPayload()->count<2) {
+    if(node->getPayload()->count<2 && level > FILL_DEPTH) {
 #ifdef OCTREE_LOG
         std::cout << std::string(level*2, ' ') << "Hit leaf node level " << level << std::endl;
 #endif

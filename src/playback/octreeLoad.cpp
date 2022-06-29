@@ -8,9 +8,9 @@ Octree<glm::vec3>* getChild(char* data, unsigned int offset) {
 
     char childCount = data[offset];
     char childFlags = data[offset+1];
-    char r = data[offset+2];
-    char g = data[offset+3];
-    char b = data[offset+4];
+    unsigned char r = data[offset+2];
+    unsigned char g = data[offset+3];
+    unsigned char b = data[offset+4];
     glm::vec3 color = glm::vec3(
         static_cast<float>(r)/255.0f,
         static_cast<float>(g)/255.0f,

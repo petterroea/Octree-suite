@@ -14,6 +14,7 @@
 #include "imgui_impl_opengl3.h"
 
 #include "octreeLoad.h"
+#include "octreeMeshRenderer.h"
 
 void GLAPIENTRY
 MessageCallback( GLenum source,
@@ -105,7 +106,9 @@ int main(int argc, char** argv) {
 
     ImGuiIO& imguiIo = ImGui::GetIO();
 
-    Octree<glm::vec3>* octree = loadOctree("captures/self_portrait.oct");
+    Octree<glm::vec3>* octree = loadOctree("octree.oct");
+
+    OctreeMeshRenderer renderer(octree);
 
     while(should_run) {
         auto start = std::chrono::system_clock::now();
@@ -180,9 +183,11 @@ int main(int argc, char** argv) {
         glm::mat4 projection = glm::perspective(
             glm::radians(75.0f),
             (float)WIDTH/(float)HEIGHT,
-            0.1f, 
-            100.0f
+            0.01f, 
+            50.0f
         );
+
+        renderer.render(view, projection);
 
         ImGui::End();
 

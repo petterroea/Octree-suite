@@ -1,3 +1,4 @@
+#pragma once
 #define ADDRESS_OCTREE(x, y, z) (x & 1) | ((y & 1) << 1) | ((z & 1) << 2)
 
 template <typename T>
