@@ -140,11 +140,10 @@ OctreeMeshRenderer::OctreeMeshRenderer(Octree<glm::vec3>* octree) {
 OctreeMeshRenderer::~OctreeMeshRenderer() {
     glDeleteVertexArrays(1, &this->vao);
     glDeleteBuffers(1, &this->vertexBuffer);
-    glDeleteBuffers(1, &this->vertexBuffer);
+    glDeleteBuffers(1, &this->colorBuffer);
 }
 
 void OctreeMeshRenderer::render(glm::mat4 view, glm::mat4 projection) {
-    std::cout << "Rendering" << std::endl;
     glUseProgram(this->shader.getHandle());
 
     // Transpose matrixes since GLM matrixes are column major
@@ -157,9 +156,7 @@ void OctreeMeshRenderer::render(glm::mat4 view, glm::mat4 projection) {
     glUniformMatrix4fv(this->shader.getViewTransformUniformLocation(), 1, GL_FALSE, (const GLfloat*) &view_transposed);
     glUniformMatrix4fv(this->shader.getProjectionTraosformUniformLocation(), 1, GL_FALSE, (const GLfloat*) &projection_transposed);
 
-    std::cout << "binding" << std::endl;
     glBindVertexArray(this->vao);
     glDrawArrays(GL_TRIANGLES, 0, vertexCount);
     glUseProgram(0);
-    std::cout << "done" << std::endl;
 }

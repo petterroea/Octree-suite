@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 # set the project name
-project(OctreeMaster)
+project(OctreeMaster LANGUAGES CUDA CXX)
 
 set(CAPTURE_EXECUTABLE_NAME ${PROJECT_NAME}Capture)
 set(PLAYBACK_EXECUTABLE_NAME ${PROJECT_NAME}Playback)
@@ -20,13 +20,13 @@ add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
 
 # Library setup
 find_package(SDL2 REQUIRED)
-include_directories(${PROJECT_NAME} ${SDL2_INCLUDE_DIRS})
+include_directories(${SDL2_INCLUDE_DIRS})
 message(STATUS, "sdl=${SDL2_INCLUDE_DIRS}")
 
 find_package(OpenGL REQUIRED)
 
 find_package(GLEW REQUIRED)
-include_directories(${PROJECT_NAME} ${GLEW_INCLUDE_DIRS})
+include_directories(${GLEW_INCLUDE_DIRS})
 link_libraries(${GLEW_LIBRARIES})
 
 find_package(realsense2 REQUIRED)
@@ -46,8 +46,10 @@ set(IMGUI_SOURCE_FILES
     ${IMGUI_BACKENDS_DIR}/imgui_impl_opengl3.cpp
     ${IMGUI_BACKENDS_DIR}/imgui_impl_sdl.cpp
 )
-include_directories(${PROJECT_NAME} ${IMGUI_SOURCE_DIR} ${IMGUI_BACKENDS_DIR})
+include_directories(${IMGUI_SOURCE_DIR} ${IMGUI_BACKENDS_DIR})
 
+find_package(CUDA REQUIRED)
+include_directories("${CUDA_INCLUDE_DIRS}")
 
 #aux_source_directory(src DIR_SRCS)
 
@@ -62,7 +64,8 @@ target_link_libraries(${CAPTURE_EXECUTABLE_NAME} ${realsense2_LIBRARY})
 target_link_libraries(${CAPTURE_EXECUTABLE_NAME} ${OpenCV_LIBS})
 
 # Define the playback executable
-file(GLOB_RECURSE DIR_PLAYBACK_SRCS src/playback/**/*.cpp src/playback/*.cpp)
+file(GLOB_RECURSE DIR_PLAYBACK_SRCS src/playback/cudaRenderer/kernels/*.cu src/playback/**/*.cpp src/playback/*.cpp)
 add_executable(${PLAYBACK_EXECUTABLE_NAME} ${DIR_PLAYBACK_SRCS} ${DIR_LIB_SRC} ${IMGUI_SOURCE_FILES})
+target_link_libraries(${PLAYBACK_EXECUTABLE_NAME} ${CUDA_LIBRARIES})
 target_link_libraries(${PLAYBACK_EXECUTABLE_NAME} ${SDL2_LIBRARIES})
 target_link_libraries(${PLAYBACK_EXECUTABLE_NAME} GL)

@@ -15,6 +15,8 @@
 
 #include "octreeLoad.h"
 #include "octreeMeshRenderer.h"
+#include "octreeWireframeRenderer.h"
+#include "cudaRenderer/cudaRenderer.h"
 
 void GLAPIENTRY
 MessageCallback( GLenum source,
@@ -108,7 +110,11 @@ int main(int argc, char** argv) {
 
     Octree<glm::vec3>* octree = loadOctree("octree.oct");
 
-    OctreeMeshRenderer renderer(octree);
+    int renderMode = 3;
+
+    OctreeWireframeRenderer wireframeRenderer(octree);
+    OctreeMeshRenderer meshRenderer(octree);
+    CudaRenderer cudaRenderer(octree);
 
     while(should_run) {
         auto start = std::chrono::system_clock::now();
@@ -164,6 +170,7 @@ int main(int argc, char** argv) {
 
         SDL_GetWindowSize(mainwindow, &WIDTH, &HEIGHT);
         glViewport(0, 0, WIDTH, HEIGHT);
+        cudaRenderer.updateTexture(WIDTH, HEIGHT);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         ImGui_ImplOpenGL3_NewFrame();
@@ -171,12 +178,13 @@ int main(int argc, char** argv) {
         ImGui::NewFrame();
 
         // GUI
-        ImGui::Begin("Playback");
+        ImGui::Begin("Render");
 
         glm::mat4 model(1.0f);
+        glm::vec3 cameraPos = glm::rotateY(glm::rotateX(glm::vec3(0.0f, 0.0f, 1.0f), glm::radians(pitch+storedPitch)), glm::radians(yaw+storedYaw))*zoom;
         glm::mat4 view = glm::lookAt(
             // Temp bs
-            glm::rotateY(glm::rotateX(glm::vec3(0.0f, 0.0f, 1.0f), glm::radians(pitch+storedPitch)), glm::radians(yaw+storedYaw))*zoom,
+            cameraPos,
             glm::vec3(0.0f, 0.0f, 0.0f),
             glm::vec3(0.0f, -1.0f, 0.0f)
         );
@@ -186,8 +194,33 @@ int main(int argc, char** argv) {
             0.01f, 
             50.0f
         );
+        ImGui::Text("Camera position:");
+        ImGui::Separator();
+        ImGui::Text("X: %f", cameraPos.x);
+        ImGui::Text("Y: %f", cameraPos.y);
+        ImGui::Text("Z: %f", cameraPos.z);
 
-        renderer.render(view, projection);
+        ImGui::RadioButton("Mesh render", &renderMode, 0); ImGui::SameLine();
+        ImGui::RadioButton("Wireframe render", &renderMode, 1); ImGui::SameLine();
+        ImGui::RadioButton("Mesh + wireframe", &renderMode, 2); ImGui::SameLine();
+        ImGui::RadioButton("CUDA raymarch", &renderMode, 3); 
+        switch(renderMode) {
+            case 0:
+                meshRenderer.render(view, projection);
+                break;
+            case 1:
+                wireframeRenderer.render(view, projection);
+                break;
+            case 2:
+                meshRenderer.render(view, projection);
+                wireframeRenderer.render(view, projection);
+                break;
+            case 3:
+                cudaRenderer.render(view, projection);
+                break;
+            default:
+                break;
+        }
 
         ImGui::End();
 

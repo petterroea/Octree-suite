@@ -264,7 +264,7 @@ glm::vec3 OctreeCapture::serialize(Octree<SizedArray<Point>>* node, std::ofstrea
     return avgColor;
 }
 
-int FILL_DEPTH=8;
+int FILL_DEPTH=7;
 void OctreeCapture::boxSort(Octree<SizedArray<Point>>* node, int level, int maxLevel) {
     if(level == maxLevel) {
 //#ifdef OCTREE_LOG
