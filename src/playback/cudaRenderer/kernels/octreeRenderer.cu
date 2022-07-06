@@ -22,10 +22,9 @@ __device__ void intersectFast(glm::vec3 cubeMin, glm::vec3 cubeMax, glm::vec3 p,
     float t0y = p.y > cubeMin.y ? 0.0f : ((cubeMin.y - p.y) / r.y);
     float t0z = p.z > cubeMin.z ? 0.0f : ((cubeMin.z - p.z) / r.z);
 
-
-    float t1x = (cubeMax.x - p.x) / r.x;
-    float t1y = (cubeMax.y - p.y) / r.y;
-    float t1z = (cubeMax.z - p.z) / r.z;
+    float t1x = p.x > cubeMax.x ? 100000.0f : ((cubeMax.x - p.x) / r.x);
+    float t1y = p.y > cubeMax.y ? 100000.0f : ((cubeMax.y - p.y) / r.y);
+    float t1z = p.z > cubeMax.z ? 100000.0f : ((cubeMax.z - p.z) / r.z);
     tcmin = max(t0x, max(t0y, t0z));
     tcmax = min(t1x, min(t1y, t1z));
 }
