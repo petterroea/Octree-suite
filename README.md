@@ -1,6 +1,6 @@
-# Realsense-multicam-capture
+# Octree suite
 
-Uses OpenCV to determine camera positions relative to a ArUco board so you can capture a scene with multiple cameras.
+Tools for capturing 3d-scans, saving them as octrees, and rendering them
 
 ## Dependencies
 
@@ -21,4 +21,4 @@ make
 
 ## Caveats
 
-The calibration is somewhat wrong due to the color sensor being offset from the depth sensor
+OpenCV calibration is highly dependent on color camera resolution and ArUCo board size.
