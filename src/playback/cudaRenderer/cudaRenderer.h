@@ -14,17 +14,31 @@ class CudaRenderer {
     int textureWidth;
     int textureHeight;
 
-    cudaArray_t cuOutput = nullptr;
-    cudaSurfaceObject_t outputSurfObj = 0;
-    GLuint glOutput = 0;
+    // RGB image
+    cudaArray_t cuOutputRgb = nullptr;
+    cudaSurfaceObject_t outputSurfObjRgb = 0;
+    GLuint glOutputRgb = 0;
 
-    void mapGlToCu();
+    // Iteration count image
+    cudaArray_t cuOutputIterations = nullptr;
+    cudaSurfaceObject_t outputSurfObjIterations = 0;
+    GLuint glOutputIterations= 0;
+
+    // Texture lifecycle
+    void cleanupTextures();
+    
+    void setupRgbTexture(int width, int height);
+    void setupIterationTexture(int width, int height);
+
+    void mapGlToCuda(GLuint glTexture, cudaArray_t* cudaArray, cudaSurfaceObject_t* surfaceObject);
 
     // OpenGL rendering stuff
     CudaBlitShader shader;
     GLuint vao;
     GLuint vertexBuffer;
     GLuint texCoordBuffer;
+
+    int renderMode = 0;
 
     //Transformation matrices
     void* viewMatrixPtr;

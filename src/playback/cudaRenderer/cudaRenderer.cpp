@@ -4,6 +4,8 @@
 #include <vector>
 #include <cstring>
 
+#include "imgui.h"
+
 #include <cuda_gl_interop.h>
 
 #include <glm/mat4x4.hpp>
@@ -83,12 +85,26 @@ CudaRenderer::CudaRenderer(Octree<glm::vec3>* octree) {
 
 CudaRenderer::~CudaRenderer() {
     // Cleanup cuda side
-    cudaDestroySurfaceObject(this->outputSurfObj);
+    this->cleanupTextures();
 
     // Cleanup GL side
     glDeleteVertexArrays(1, &this->vao);
     glDeleteBuffers(1, &this->vertexBuffer);
     glDeleteBuffers(1, &this->texCoordBuffer);
+}
+
+
+void CudaRenderer::cleanupTextures() {
+    std::cout << "Texture cleanup" << std::endl;
+    // RGB
+    glDeleteTextures(1, &this->glOutputRgb);
+    cudaFreeArray(this->cuOutputRgb);
+    cudaDestroySurfaceObject(this->outputSurfObjRgb);
+
+    // Iteration count
+    glDeleteTextures(1, &this->glOutputIterations);
+    cudaFreeArray(this->cuOutputIterations);
+    cudaDestroySurfaceObject(this->outputSurfObjIterations);
 }
 
 /*
@@ -103,15 +119,18 @@ void CudaRenderer::updateTexture(int width, int height) {
     this->textureWidth = width;
     this->textureHeight = height;
     // If we already have a texture, dispose of it first 
-    if(this->glOutput != 0) {
-        std::cout << "Cleaning up previous texture" << std::endl;
-        glDeleteTextures(1, &this->glOutput);
-        cudaFreeArray(this->cuOutput);
+    if(this->glOutputRgb != 0) {
+        this->cleanupTextures();
     }
 
-    glGenTextures(1, &this->glOutput);
-    std::cout << "Allocated new CUDA target texture " << this->glOutput<< std::endl;
-    glBindTexture(GL_TEXTURE_2D, this->glOutput);
+    this->setupRgbTexture(width, height);
+    this->setupIterationTexture(width, height);
+}
+
+void CudaRenderer::setupRgbTexture(int width, int height) {
+    glGenTextures(1, &this->glOutputRgb);
+    std::cout << "Allocated new RGB CUDA target texture " << this->glOutputRgb << std::endl;
+    glBindTexture(GL_TEXTURE_2D, this->glOutputRgb);
 
     // Setup filtering parameters for display
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -133,11 +152,37 @@ void CudaRenderer::updateTexture(int width, int height) {
     glBindTexture(GL_TEXTURE_2D, 0);
     free(placeholderData);
 
+    this->mapGlToCuda(this->glOutputRgb, &this->cuOutputRgb, &this->outputSurfObjRgb);
+}
+void CudaRenderer::setupIterationTexture(int width, int height) {
+    glGenTextures(1, &this->glOutputIterations);
+    std::cout << "Allocated new RGB CUDA target texture " << this->glOutputIterations << std::endl;
+    glBindTexture(GL_TEXTURE_2D, this->glOutputIterations);
+
+    // Setup filtering parameters for display
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+
+    // Upload pixels into texture
+    void* placeholderData = malloc(width*height);
+    for(int i = 0; i < width*height; i++) {
+        ((unsigned char*)placeholderData)[i] = 0xFA;
+    }
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, placeholderData);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    free(placeholderData);
+
+    this->mapGlToCuda(this->glOutputIterations, &this->cuOutputIterations, &this->outputSurfObjIterations);
+}
+
+void CudaRenderer::mapGlToCuda(GLuint glTexture, cudaArray_t* cudaArray, cudaSurfaceObject_t* surfaceObject) {
     // Create CUDA mapping
     cudaGraphicsResource_t graphicsResource;
-    cudaGraphicsGLRegisterImage(&graphicsResource, this->glOutput, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsSurfaceLoadStore);
+    cudaGraphicsGLRegisterImage(&graphicsResource, glTexture, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsSurfaceLoadStore);
     cudaGraphicsMapResources(1, &graphicsResource, 0);
-    cudaGraphicsSubResourceGetMappedArray(&this->cuOutput, graphicsResource, 0, 0);
+    cudaGraphicsSubResourceGetMappedArray(cudaArray, graphicsResource, 0, 0);
     cudaGraphicsUnmapResources(1, &graphicsResource, 0);
 
     // Create surface object(Used when reading/writing to the texture)
@@ -146,9 +191,8 @@ void CudaRenderer::updateTexture(int width, int height) {
     resDesc.resType = cudaResourceTypeArray;
 
     // Create the surface objects
-    resDesc.res.array.array = this->cuOutput;
-    cudaCreateSurfaceObject(&this->outputSurfObj, &resDesc);
-
+    resDesc.res.array.array = *cudaArray;
+    cudaCreateSurfaceObject(surfaceObject, &resDesc);
 }
 
 void CudaRenderer::render(glm::mat4 view, glm::mat4 projection) {
@@ -173,15 +217,27 @@ void CudaRenderer::render(glm::mat4 view, glm::mat4 projection) {
     // TODO use copysign
     int flipFlag = (p.x<0.0f?0:1) | ((p.y<0.0f?0:1)<<1) | ((p.z<0.0f?0:1)<<2);
 
+    ImGui::Text("Render mode");
+    ImGui::RadioButton("RGB", &this->renderMode, 0); ImGui::SameLine();
+    ImGui::RadioButton("Iteration count", &this->renderMode, 1); ImGui::SameLine();
     //Run CUDA
-    cudaRender(this->octreeGpuDataPtr, this->rootNodeOffset, this->outputSurfObj, this->textureWidth, this->textureHeight, viewMatrixPtr, projectionMatrixPtr, flipFlag);
+    cudaRender(this->octreeGpuDataPtr, this->rootNodeOffset, this->outputSurfObjRgb, this->outputSurfObjIterations, this->textureWidth, this->textureHeight, viewMatrixPtr, projectionMatrixPtr, flipFlag);
 
     //Blit the results
     glUseProgram(this->shader.getHandle());
 
     glUniform1i(this->shader.getTextureLocation(), 0);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, this->glOutput);
+    switch(this->renderMode) {
+        case 0:
+            glBindTexture(GL_TEXTURE_2D, this->glOutputRgb);
+            break;
+        case 1:
+            glBindTexture(GL_TEXTURE_2D, this->glOutputIterations);
+            break;
+        default:
+            break;
+    }
 
     glBindVertexArray(this->vao);
     glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -198,7 +254,7 @@ int generateOctreeInternal(Octree<glm::vec3>* octree, std::vector<GpuOctree>& no
             gpuOctree.children[i] = generateOctreeInternal(child, nodes);
         } else {
             //TODO is 0-comparison faster?
-            gpuOctree.children[i] = 0xFFFFFFFF;
+            gpuOctree.children[i] = -1;
         }
     }
     nodes.push_back(gpuOctree);
