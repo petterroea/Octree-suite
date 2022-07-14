@@ -1,5 +1,5 @@
 #include "cudaBlitShader.h"
-#include "../../lib/shader.h"
+#include <shader.h>
 
 CudaBlitShader::CudaBlitShader() {
     //Build shaders

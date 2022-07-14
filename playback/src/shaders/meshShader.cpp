@@ -1,5 +1,5 @@
 #include "meshShader.h"
-#include "../../lib/shader.h"
+#include <shader.h>
 
 MeshShader::MeshShader() {
     //Build shaders

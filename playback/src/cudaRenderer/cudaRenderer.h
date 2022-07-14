@@ -5,7 +5,7 @@
 #include <GL/glew.h>
 #include <cuda_runtime.h>
 
-#include "../../lib/octree.h"
+#include <octree.h>
 #include "gpuOctree.h"
 
 #include "../shaders/cudaBlitShader.h"
