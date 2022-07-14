@@ -6,8 +6,8 @@
 
 #include "main.h"
 #include "depthCamera.h"
-#include "../lib/lineRenderer.h"
-#include "../lib/octree.h"
+#include <lineRenderer.h>
+#include <octree.h>
 
 #define ADDRESS_OCTREE_BY_VEC3(vec) ADDRESS_OCTREE(signbit(vec.x), signbit(vec.y), signbit(vec.z))
 

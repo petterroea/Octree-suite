@@ -1,6 +1,6 @@
 
 #include "captureTranslationShader.h"
-#include "../../lib/shader.h"
+#include <shader.h>
 
 CaptureTranslationShader::CaptureTranslationShader() {
     //Build shaders

@@ -1,5 +1,5 @@
 #include "pointcloudShader.h"
-#include "../../lib/shader.h"
+#include <shader.h>
 
 PointcloudShader::PointcloudShader() {
     //Build shaders

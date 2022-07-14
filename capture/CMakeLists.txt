@@ -45,8 +45,8 @@ find_package(realsense2 REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # Target
-file(GLOB_RECURSE DIR_CAPTURE_SRCS src/capture/**/*.cpp src/capture/*.cpp)
-add_executable(${PROJECT_NAME} ${DIR_PLAYBACK_SRCS} ${IMGUI_SOURCE_FILES})
+file(GLOB_RECURSE DIR_CAPTURE_SRCS src/**/*.cpp src/*.cpp)
+add_executable(${PROJECT_NAME} ${DIR_CAPTURE_SRCS} ${IMGUI_SOURCE_FILES})
 
 # Includes
 target_include_directories(${PROJECT_NAME} PUBLIC ${SDL2_INCLUDE_DIRS})
