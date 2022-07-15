@@ -44,21 +44,33 @@ __device__ float intersectMaxFast(glm::vec3 cubeMax, glm::vec3 p, glm::vec3 r) {
 __device__ bool intersectFast(glm::vec3 cubeMin, glm::vec3 cubeMax, glm::vec3 p, glm::vec3 r, float& tmin_o, float& tmax_o) {
     float t0x = ((cubeMin.x - p.x) / r.x);
     float t1x = ((cubeMax.x - p.x) / r.x);
-    if(p.x > cubeMin.x) {
+    if(p.x > cubeMax.x) {
+        swap(t0x, t1x);
+    }
+    else if(p.x > cubeMin.x) {
+        float tmp = t1x;
         t1x = max(t1x, t0x);
         t0x = 0.0f;
     }
 
     float t0y = ((cubeMin.y - p.y) / r.y);
     float t1y = ((cubeMax.y - p.y) / r.y);
-    if(p.y > cubeMin.y) {
+    if(p.y > cubeMax.y) {
+        swap(t0y, t1y);
+    }
+    else if(p.y > cubeMin.y) {
+        float tmp = t1y;
         t1y = max(t1y, t0y);
         t0y = 0.0f;
     }
 
     float t0z = ((cubeMin.z - p.z) / r.z);
     float t1z = ((cubeMax.z - p.z) / r.z);
-    if(p.z > cubeMin.z) {
+    if(p.z > cubeMax.z) {
+        swap(t0z, t1z);
+    }
+    else if(p.z > cubeMin.z) {
+        float tmp = t1z;
         t1z = max(t1z, t0z);
         t0z = 0.0f;
     }
@@ -197,13 +209,13 @@ __global__ void kernel_cudaRender(GpuOctree* in, int rootOffset, cudaSurfaceObje
     int intersected = 0;
 
     // If we don't hit the root node, immediately disregard the ray
-    bool inCube = intersect(cubeMin, cubeMax, glm::vec3(p.x, p.y, p.z), glm::vec3(r.x, r.y, r.z), tmin_global, tmax_global);
+    bool inCube = intersectFast(cubeMin, cubeMax, glm::vec3(p.x, p.y, p.z), glm::vec3(r.x, r.y, r.z), tmin_global, tmax_global);
     if(!inCube) {
         // Do nothing
     }  else {
         t = tmin_global;
         int iterations = 0;
-        while(t < tmax_global && iterations < 100) {
+        while(t < tmax_global && iterations < 200) {
             iterations++;
             if(scale * 20> color) {
                 //color = scale * 20;
@@ -230,7 +242,7 @@ __global__ void kernel_cudaRender(GpuOctree* in, int rootOffset, cudaSurfaceObje
                     glm::vec3 childMin = cubeMin*childScale + childOffset;
                     glm::vec3 childMax = cubeMax*childScale + childOffset;
                     // Do we intersect with the child?
-                    if(intersect(childMin, childMax, glm::vec3(p.x, p.y, p.z), glm::vec3(r.x, r.y, r.z), tmin, tmax)) {
+                    if(intersectFast(childMin, childMax, glm::vec3(p.x, p.y, p.z), glm::vec3(r.x, r.y, r.z), tmin, tmax)) {
                         // Is the intersection in front of the current ray progress?
                         if(tmin >= t) {
                             validIndices[validCount++] = i;
@@ -247,16 +259,19 @@ __global__ void kernel_cudaRender(GpuOctree* in, int rootOffset, cudaSurfaceObje
                 glm::vec3 colorVec = in[raymarchStack[scale]].color;
 
                 float myScale = powf(2.0f, -(scale));
-                /*
+                
                 glm::vec3 intersection = (p+r*tmin);
                 intersection = (intersection - centerStack[scale])*myScale;
                 int intersectionX = flipFlagX^(intersection.x<0.0f?0:1);
                 int intersectionY = flipFlagY^(intersection.y<0.0f?0:1);
                 int intersectionZ = flipFlagZ^(intersection.z<0.0f?0:1);
-*/
+
                 int r = __float2int_rd(colorVec.x*255.0f);
                 int g = __float2int_rd(colorVec.y*255.0f);
                 int b = __float2int_rd(colorVec.z*255.0f);
+                //r = 255;
+                //g = 255;
+                //b = 255;
 
                 //color = (intersectionX ? ((r&0xff) << 0) : 0) | (intersectionY ? ((g&0xff) << 8) : 0) | (intersectionZ ? ((b&0xff) << 16) : 0);
                 color = ((r&0xff) << 0) | ((g&0xff) << 8) | ((b&0xff) << 16);
@@ -301,7 +316,7 @@ __global__ void kernel_cudaRender(GpuOctree* in, int rootOffset, cudaSurfaceObje
                 // Set t to tmax of the current node
                 glm::vec3 myMin = cubeMin*myScale + centerStack[scale];
                 glm::vec3 myMax = cubeMax*myScale + centerStack[scale];
-                intersect(myMin, myMax, glm::vec3(p.x, p.y, p.z), glm::vec3(r.x, r.y, r.z), tmin, tmax);
+                intersectFast(myMin, myMax, glm::vec3(p.x, p.y, p.z), glm::vec3(r.x, r.y, r.z), tmin, tmax);
                 t = tmax;
                 scale--;
             }
