@@ -25,7 +25,7 @@ include_directories(${GLEW_INCLUDE_DIRS})
 link_libraries(${GLEW_LIBRARIES})
 
 file(GLOB_RECURSE DIR_LIB_SRC ${CMAKE_CURRENT_LIST_DIR}/src/**/*.cpp ${CMAKE_CURRENT_LIST_DIR}/src/*.cpp)
-message(STATUS "lib_src${DIR_LIB_SRC}")
+message(STATUS "lib_src=${DIR_LIB_SRC}")
 
 add_library(${PROJECT_NAME} ${DIR_LIB_SRC})
 # Define the library
