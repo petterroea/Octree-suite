@@ -70,8 +70,8 @@ void RealsenseDepthCamera::processFrame() {
     if(this->calibrationEnabled) {
         // Align the color frame to the depth frame so OpenCV gets correct data
         rs2::align align_to_depth(RS2_STREAM_DEPTH);
-        this->lastFrame = align_to_depth.process(this->lastFrame);
-        rs2::video_frame colorFrame = this->lastFrame.get_color_frame();
+        rs2::frameset alignedFrameset = align_to_depth.process(this->lastFrame);
+        rs2::video_frame colorFrame = alignedFrameset.get_color_frame();
         this->calibrator.tryCalibrateCameraPosition(this->calibratedTransform, colorFrame);
     }
     std::cout << this->getSerial() << " processed a frame" << std::endl;
@@ -86,11 +86,10 @@ void RealsenseDepthCamera::processFrame() {
     int w = colorFrame.get_width();
     int h = colorFrame.get_height();
     unsigned char* data = (unsigned char*) colorFrame.get_data();
+    unsigned int* conversionBuffer = (unsigned int*)this->textureConversionBuffer;
     for(int i = 0; i < w*h; i++) {
-        this->textureConversionBuffer[i*4+0] = data[i*3+0];
-        this->textureConversionBuffer[i*4+1] = data[i*3+1];
-        this->textureConversionBuffer[i*4+2] = data[i*3+2];
-        this->textureConversionBuffer[i*4+3] = 1;
+        unsigned int* dataPtr = (unsigned int*)(&data[i*3]);
+        conversionBuffer[i] = *dataPtr | 0xFF000000;
     }
     // Upload color data
     cudaMemcpy2DToArray(
