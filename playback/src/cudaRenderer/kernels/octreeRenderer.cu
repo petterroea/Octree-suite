@@ -300,7 +300,7 @@ __global__ void kernel_cudaRender(GpuOctree* in, int rootOffset, cudaSurfaceObje
                 float myScale = powf(2.0f, -(scale));
 
                 // Settle for this voxel if we are returning from a high scale
-                if(scale==9) {
+                if(scale==10) {
                     glm::vec3 colorVec = in[raymarchStack[scale]].color;
 
                     int r = __float2int_rd(colorVec.x*255.0f);
@@ -322,7 +322,7 @@ __global__ void kernel_cudaRender(GpuOctree* in, int rootOffset, cudaSurfaceObje
             }
             //tmin = intersectMinFast(cubeMin, glm::vec3(p.x, p.y, p.z), glm::vec3(r.x, r.y, r.z));
         }
-        surf2Dwrite<uint8_t>(iterations*8, iterationOutput, x*sizeof(uint8_t), y);
+        surf2Dwrite<uint8_t>(iterations*4, iterationOutput, x*sizeof(uint8_t), y);
     }
 
     //color = (intersectionX ? (0xff << 0) : 0) | (intersectionY ? (0xff << 8) : 0) | (intersectionZ ? (0xff << 16) : 0);
