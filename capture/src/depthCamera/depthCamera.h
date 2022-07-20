@@ -71,6 +71,7 @@ public:
     //const rs2::texture_coordinate* getTextureCoordinates() { return (const rs2::texture_coordinate*) this->lastTextureCoordinates; }
 
     glm::mat4& getCalibration() { return this->calibratedTransform; }
+    void setCalibration(glm::mat4 newCalibration) { this->calibratedTransform = newCalibration; }
 
     void drawImmediateGui();
 

@@ -12,9 +12,6 @@
 #include <librealsense2/rs.hpp>
 #include <librealsense2/hpp/rs_internal.hpp>
 
-#include <opencv2/highgui.hpp>
-#include <opencv2/core.hpp>
-
 #include "imgui.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_opengl3.h"
@@ -201,9 +198,6 @@ int main(int argc, char** argv) {
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        // GUI
-        ImGui::Begin("Sensor settings");
-
         glm::mat4 model(1.0f);
         glm::mat4 view = glm::lookAt(
             // Temp bs
@@ -254,14 +248,6 @@ int main(int argc, char** argv) {
             ImGui::PopID();
         }
 */
-        if(ImGui::CollapsingHeader("OpenCV")) {
-            if(ImGui::Button("Generate ArUco board")) {
-                cv::Mat boardImage;
-                openCVCalibrationBoard->draw( cv::Size(794*4, 1123*4), boardImage, 1, 1 );
-                cv::imwrite("ArUco.bmp", boardImage);
-            }
-        }
-        ImGui::End();
 
         ImGui::Begin("Performance");
 

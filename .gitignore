@@ -6,6 +6,7 @@ cmake_install.cmake
 CMakeCache.txt
 Makefile
 imgui.ini
+calibration.json
 *.png
 *.bmp
 

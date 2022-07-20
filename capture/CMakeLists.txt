@@ -29,7 +29,7 @@ target_include_directories(${CAPTURE_BINARY_NAME} PUBLIC ${GLEW_INCLUDE_DIRS})
 target_include_directories(${CAPTURE_BINARY_NAME} PUBLIC ${IMGUI_SOURCE_DIR} ${IMGUI_BACKENDS_DIR})
 target_include_directories(${CAPTURE_BINARY_NAME} PUBLIC ${OpenCV_INCLUDE_DIRS})
 target_include_directories(${CAPTURE_BINARY_NAME} PUBLIC "../lib/src")
-target_include_directories(${CAPTURE_BINARY_NAME} PUBLIC "../rapidjson/include/rapidjson")
+target_include_directories(${CAPTURE_BINARY_NAME} PUBLIC "../rapidjson/include")
 
 # Linking
 target_link_libraries(${CAPTURE_BINARY_NAME} ${CUDA_LIBRARIES})
