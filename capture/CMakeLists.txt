@@ -19,7 +19,7 @@ find_package(CUDA REQUIRED)
 message(STATUS "cuda_include=${CUDA_INCLUDE_DIRS}")
 
 # Target
-file(GLOB_RECURSE DIR_CAPTURE_SRCS src/**/*.cpp src/*.cpp)
+file(GLOB_RECURSE DIR_CAPTURE_SRCS src/kernels/*.cu src/**/*.cpp src/*.cpp)
 add_executable(${CAPTURE_BINARY_NAME} ${DIR_CAPTURE_SRCS} ${IMGUI_SOURCE_FILES})
 
 # Includes

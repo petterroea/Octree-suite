@@ -33,7 +33,7 @@ void DepthCamera::setupGpuMemoryOpenGL(VideoMode mode) {
     // Let the renderer set up OpenGL handles, then bind them to CUDA handles
     this->renderer = new TexturedPointcloudRenderer(videoMode, shaderSingleton);
     // Map textures to CUDA
-    this->mapGlTextureToCuda(this->renderer->getColorTextureHandle(), &this->cuArrayTexRgb, &this->cuSurfaceObjectTexRgb);
+    this->mapGlTextureToCuda(this->renderer->getColorTextureHandle(), &this->cuArrayTexRgba, &this->cuSurfaceObjectTexRgba);
     this->mapGlTextureToCuda(this->renderer->getDepthTextureHandle(), &this->cuArrayTexDepth, &this->cuSurfaceObjectTexDepth);
 
     // Map buffers to CUDA
@@ -83,8 +83,8 @@ DepthCamera::~DepthCamera() {
         delete this->renderer;
     }
     //TODO unregister
-    cudaFreeArray(this->cuArrayTexRgb);
-    cudaDestroySurfaceObject(this->cuSurfaceObjectTexRgb);
+    cudaFreeArray(this->cuArrayTexRgba);
+    cudaDestroySurfaceObject(this->cuSurfaceObjectTexRgba);
 
     cudaFreeArray(this->cuArrayTexDepth);
     cudaDestroySurfaceObject(this->cuSurfaceObjectTexDepth);

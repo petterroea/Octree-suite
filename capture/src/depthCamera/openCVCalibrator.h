@@ -27,4 +27,6 @@ public:
     bool tryCalibrateCameraPosition(glm::mat4& transform, rs2::video_frame& frame);
 
     void drawImmediateGui();
+    int getLastDetectedMarkers() { return this->lastDetectedMarkers; }
+    bool getIsValidPose() { return this->isValidPose; }
 };

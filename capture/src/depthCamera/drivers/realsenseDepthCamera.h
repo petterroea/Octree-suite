@@ -18,8 +18,11 @@ class RealsenseDepthCamera : public DepthCamera{
     virtual void beginCapture();
     virtual void endCapture();
 
-    // Need to convert image data to RGBA before uploading it to OpenGL
-    unsigned char* textureConversionBuffer;
+    // Upload the RGB texture to this first, then
+    // use a cuda kernel to add the alpha channel and
+    // move the data to the RGBA texture defined by
+    // our parent object, DepthCamera
+    void* cuTexRgb;
 
     void uploadToGpu();
 public:

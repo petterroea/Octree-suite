@@ -50,8 +50,8 @@ protected:
     void mapGlTextureToCuda(GLuint glTexture, cudaArray_t* cudaArray, cudaSurfaceObject_t* surfaceObject);
     void mapGlBufferToCuda(GLuint glTexture, void** devPtr);
     
-    cudaArray_t cuArrayTexRgb = nullptr;
-    cudaSurfaceObject_t cuSurfaceObjectTexRgb = 0;
+    cudaArray_t cuArrayTexRgba = nullptr;
+    cudaSurfaceObject_t cuSurfaceObjectTexRgba = 0;
 
     void* devPtrPoints = nullptr;
 
@@ -83,6 +83,10 @@ public:
     void requestFrame();
     // Wait for frame fetch to finish
     void waitForNewFrame();
+
+    bool getCalibrationEnabled() { return this->calibrationEnabled; }
+    void setCalibrationEnabled(bool newVal) { this->calibrationEnabled = newVal; }
+    OpenCVCalibrator& getCalibrator() { return this->calibrator; }
 
     int getPointCount() { return this->pointCount; };
     TexturedPointcloudRenderer* getRenderer() { return this->renderer; }

@@ -4,6 +4,8 @@
 
 #include <iostream>
 
+#include "../../kernels/cudaPitchRgbToRgba.h"
+
 RealsenseDepthCamera::RealsenseDepthCamera(RenderMode renderMode, rs2::device device, bool master) : DepthCamera(renderMode, VideoMode{
     .colorWidth = 1920,
     .colorHeight = 1080,
@@ -36,11 +38,12 @@ RealsenseDepthCamera::RealsenseDepthCamera(RenderMode renderMode, rs2::device de
     colorSensor.set_option(RS2_OPTION_SATURATION, 64.0f);
     colorSensor.set_option(RS2_OPTION_SHARPNESS, 50.0f);
 
-    this->textureConversionBuffer = new unsigned char[1920*4*1080];
+    // Destination for RealSense RGB texture
+    cudaMalloc(&this->cuTexRgb, this->videoMode.colorWidth*this->videoMode.colorHeight*3+1);
 }
 
 RealsenseDepthCamera::~RealsenseDepthCamera() {
-    delete[] this->textureConversionBuffer;
+    cudaFree(this->cuTexRgb);
 }
 
 std::string RealsenseDepthCamera::getSerial() { 
@@ -85,13 +88,8 @@ void RealsenseDepthCamera::processFrame() {
 
     int w = colorFrame.get_width();
     int h = colorFrame.get_height();
-    unsigned char* data = (unsigned char*) colorFrame.get_data();
-    unsigned int* conversionBuffer = (unsigned int*)this->textureConversionBuffer;
-    for(int i = 0; i < w*h; i++) {
-        unsigned int* dataPtr = (unsigned int*)(&data[i*3]);
-        conversionBuffer[i] = *dataPtr | 0xFF000000;
-    }
     // Upload color data
+    /*
     cudaMemcpy2DToArray(
         this->cuArrayTexRgb, 0, 0, 
         textureConversionBuffer, 
@@ -101,14 +99,19 @@ void RealsenseDepthCamera::processFrame() {
         colorFrame.get_width()*4, 
         colorFrame.get_height(), 
         cudaMemcpyHostToDevice
-    );
+    );*/
+    cudaMemcpy(this->cuTexRgb, colorFrame.get_data(), w*h*3, cudaMemcpyHostToDevice);
+    CUDA_CATCH_ERROR
+    // Run our CUDA kernel that copies memory in parallel while expanding the pitch to RGBA
+    pitchRgbToRgba(this->cuTexRgb, this->cuSurfaceObjectTexRgba, w*h, w);
     CUDA_CATCH_ERROR
 
     auto end = std::chrono::system_clock::now();
     float elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     float processing_time = std::chrono::duration_cast<std::chrono::milliseconds>(processing_end- start).count();
     float pointcloud_time = std::chrono::duration_cast<std::chrono::milliseconds>(pointcloud_end - processing_end).count();
-    std::cout << this->getSerial() << " completed processing in " << elapsed_time << "ms (processing " << processing_time << " pointcloud " << pointcloud_time << ")" << std::endl;
+    float gpu_upload_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - pointcloud_end).count();
+    std::cout << this->getSerial() << " completed processing in " << elapsed_time << "ms (processing " << processing_time << " pointcloud " << pointcloud_time << ", gpu upload " << gpu_upload_time << ")" << std::endl;
 }
 
 void RealsenseDepthCamera::endCapture() {
