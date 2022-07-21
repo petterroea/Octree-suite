@@ -10,6 +10,8 @@
 #include <rapidjson/istreamwrapper.h>
 #include <rapidjson/writer.h>
 
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <fstream>
 
 
@@ -111,9 +113,32 @@ void Capturer::render(glm::mat4x4& view, glm::mat4x4& proj) {
     this->settings.renderHelpLines(view, proj);
 }
 
+void Capturer::capture() {
+    std::vector<Pointcloud> pointclouds;
+    // If the thread isn't done writing the last thread(unlikely), wait
+    this->writer.waitForSafeToWrite();
+    // Calculate the transformation matrix for the configured capture region
+    glm::mat4x4 captureTransform = glm::scale(
+        glm::translate(
+            glm::mat4(1.0f), 
+            -1.0f*this->settings.getCapturePosition()), 
+        glm::vec3(1.0f/this->settings.getCaptureScale())
+    );
+    // Transform points to world space and download them from the GPU
+    for(auto device : this->cameras) {
+        Pointcloud pointcloud;
+        device->capturePoints(&pointcloud.points, &pointcloud.colors, &pointcloud.count, captureTransform);
+        pointclouds.push_back(pointcloud);
+    }
+    writer.write(pointclouds);
+}
+
 void Capturer::displayGui() {
     ImGui::Begin("Capture");
     this->settings.displayGui();
+    if(ImGui::Button("Cheese!")) {
+        this->capture();
+    }
     ImGui::End();
     ImGui::Begin("Devices");
     for(auto device : this->cameras) {
@@ -129,8 +154,6 @@ void Capturer::displayGui() {
     }
     ImGui::End();
 
-
-    // GUI
     ImGui::Begin("Utils");
     if(ImGui::Button("Save calibration to JSON")) {
         saveCalibration();

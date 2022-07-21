@@ -89,22 +89,17 @@ void RealsenseDepthCamera::processFrame() {
     int w = colorFrame.get_width();
     int h = colorFrame.get_height();
     // Upload color data
-    /*
-    cudaMemcpy2DToArray(
-        this->cuArrayTexRgb, 0, 0, 
-        textureConversionBuffer, 
-        // Pitch
-        colorFrame.get_width()*4, 
-        // Width
-        colorFrame.get_width()*4, 
-        colorFrame.get_height(), 
-        cudaMemcpyHostToDevice
-    );*/
     cudaMemcpy(this->cuTexRgb, colorFrame.get_data(), w*h*3, cudaMemcpyHostToDevice);
+    CUDA_CATCH_ERROR
+    // Upload buffers
+    cudaMemcpy(this->devPtrPoints, this->lastPointcloud.get_vertices(), sizeof(rs2::vertex)*this->lastPointcloud.size(), cudaMemcpyHostToDevice);
+    cudaMemcpy(this->devPtrTexCoords, this->lastPointcloud.get_texture_coordinates(), sizeof(rs2::texture_coordinate)*this->lastPointcloud.size(), cudaMemcpyHostToDevice);
     CUDA_CATCH_ERROR
     // Run our CUDA kernel that copies memory in parallel while expanding the pitch to RGBA
     pitchRgbToRgba(this->cuTexRgb, this->cuSurfaceObjectTexRgba, w*h, w);
     CUDA_CATCH_ERROR
+
+    this->pointCount = lastPointcloud.size();
 
     auto end = std::chrono::system_clock::now();
     float elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -121,29 +116,5 @@ void RealsenseDepthCamera::endCapture() {
 
 
 void RealsenseDepthCamera::uploadGpuDataSync() {
-    std::cout << this->getSerial() << " uploading textures" << std::endl;
-    if(renderMode == RenderMode::OPENGL) {
-        // TODO can we upload from cuda once we have uploaded from OpenGL once?
-        glBindTexture(GL_TEXTURE_2D, this->renderer->getDepthTextureHandle());
-        rs2::depth_frame depth = this->lastFrame.get_depth_frame();
-        std::cout << "Depth: " << depth.get_width() << " " << depth.get_height() << std::endl;
-        //glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, depth.get_width(), depth.get_height(), 0, GL_RED, GL_UNSIGNED_SHORT, depth.get_data());
-
-        glBindTexture(GL_TEXTURE_2D, this->renderer->getColorTextureHandle());
-        rs2::video_frame colorFrame = this->lastFrame.get_color_frame();
-        std::cout << "Color: " << colorFrame.get_width() << " " << colorFrame.get_height() << std::endl;
-        //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, colorFrame.get_width(), colorFrame.get_height(), 0, GL_RGB, GL_UNSIGNED_BYTE, colorFrame.get_data());
-
-        glBindTexture(GL_TEXTURE_2D, 0);
-        std::cout << this->getSerial() << " uploading buffers" << std::endl;
-        glBindBuffer(GL_ARRAY_BUFFER, this->renderer->getPointBufferHandle());
-        glBufferData(GL_ARRAY_BUFFER, sizeof(rs2::vertex)*lastPointcloud.size(), lastPointcloud.get_vertices(), GL_DYNAMIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, this->renderer->getTextureCoordBufferHandle());
-        glBufferData(GL_ARRAY_BUFFER, sizeof(rs2::texture_coordinate)*lastPointcloud.size(), lastPointcloud.get_texture_coordinates(), GL_DYNAMIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-    } else {
-        throw "TODO";
-    }
-
-    this->pointCount = lastPointcloud.size();
+    // Everything is uploaded in CUDA
 }

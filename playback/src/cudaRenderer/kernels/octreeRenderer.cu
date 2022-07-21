@@ -300,7 +300,7 @@ __global__ void kernel_cudaRender(GpuOctree* in, int rootOffset, cudaSurfaceObje
                 float myScale = powf(2.0f, -(scale));
 
                 // Settle for this voxel if we are returning from a high scale
-                if(scale==10) {
+                if(scale==9) {
                     glm::vec3 colorVec = in[raymarchStack[scale]].color;
 
                     int r = __float2int_rd(colorVec.x*255.0f);

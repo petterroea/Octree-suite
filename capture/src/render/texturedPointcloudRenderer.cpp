@@ -7,11 +7,12 @@ TexturedPointcloudRenderer::TexturedPointcloudRenderer(VideoMode mode, Pointclou
     glBindVertexArray(this->vao);
 
     //Cuda complains if we try to bind it to OpenGl before the buffer contains data
-    char* placeholder = new char[10000];
+    int expectedMaxParticles = mode.colorWidth*mode.colorHeight;
+    char* placeholder = new char[expectedMaxParticles*sizeof(glm::vec3)];
     //Buffers
     glGenBuffers(1, &this->pointBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, this->pointBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(char)*10000, placeholder, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, expectedMaxParticles*sizeof(glm::vec3), placeholder, GL_DYNAMIC_DRAW);
     glVertexAttribPointer(
         0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
         3,                  // size
@@ -24,7 +25,7 @@ TexturedPointcloudRenderer::TexturedPointcloudRenderer(VideoMode mode, Pointclou
 
     glGenBuffers(1, &this->texCoordBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, this->texCoordBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(char)*10000, placeholder, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, expectedMaxParticles*sizeof(glm::vec2), placeholder, GL_DYNAMIC_DRAW);
     glVertexAttribPointer(
         1,                  
         2,                  // size

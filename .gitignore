@@ -9,5 +9,5 @@ imgui.ini
 calibration.json
 *.png
 *.bmp
-
+*.ply
 .vscode

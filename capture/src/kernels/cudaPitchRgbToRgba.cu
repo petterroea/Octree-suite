@@ -9,7 +9,7 @@
  */
 __global__ void kernel_pitchRgbToRgba(char* src, cudaSurfaceObject_t dst, int size, int width) {
     int pixelIdx = blockIdx.x*THREADS_PER_BLOCK+threadIdx.x;
-    if(pixelIdx > size) {
+    if(pixelIdx >= size) {
         return;
     }
     unsigned char r = src[pixelIdx*3+0];

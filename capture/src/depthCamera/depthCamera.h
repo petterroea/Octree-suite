@@ -14,6 +14,7 @@
 #include "types.h"
 #include "../render/texturedPointcloudRenderer.h"
 
+#include "gpuPointTransformer.h"
 
 class DepthCamera {
 private:
@@ -27,7 +28,7 @@ private:
 protected:
     // Stores state relating to calibrating the current depth camera, and printing debug info from it
     OpenCVCalibrator calibrator;
-    bool calibrationEnabled = true;
+    bool calibrationEnabled = false;
 
     TexturedPointcloudRenderer* renderer = nullptr;
     VideoMode videoMode;
@@ -47,19 +48,24 @@ protected:
     void setupGpuMemoryOpenGL(VideoMode mode);
     void setupGpuMemoryHeadless(VideoMode mode);
 
-    void mapGlTextureToCuda(GLuint glTexture, cudaArray_t* cudaArray, cudaSurfaceObject_t* surfaceObject);
+    void mapGlTextureToCudaArray(GLuint glTexture, cudaArray_t* cudaArray);
     void mapGlBufferToCuda(GLuint glTexture, void** devPtr);
-    
+
+    // Texture 
     cudaArray_t cuArrayTexRgba = nullptr;
     cudaSurfaceObject_t cuSurfaceObjectTexRgba = 0;
+    cudaTextureObject_t cuTextureObjectRgba = 0;
 
+    // Buffers
     void* devPtrPoints = nullptr;
-
     void* devPtrTexCoords = nullptr;
 
+    // Container for handling double-buffered vector transformation on GPU
+    GpuPointTransformer gpuTransformer;
+
     // Only for visualisation. Maybe we can ignore?
-    cudaArray_t cuArrayTexDepth = nullptr;
-    cudaSurfaceObject_t cuSurfaceObjectTexDepth = 0;
+    //cudaArray_t cuArrayTexDepth = nullptr;
+    //cudaSurfaceObject_t cuSurfaceObjectTexDepth = 0;
 
     int pointCount = 0;
 
@@ -90,6 +96,8 @@ public:
     OpenCVCalibrator& getCalibrator() { return this->calibrator; }
 
     int getPointCount() { return this->pointCount; };
+    void capturePoints(glm::vec3** points, glm::vec3** colors, int* count, glm::mat4x4 captureTransform);
+
     TexturedPointcloudRenderer* getRenderer() { return this->renderer; }
 
     virtual void uploadGpuDataSync() = 0;

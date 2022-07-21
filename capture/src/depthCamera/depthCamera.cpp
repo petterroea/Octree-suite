@@ -16,7 +16,7 @@
 #include "openCVCalibrator.h"
 #include "../render/shaders/pointcloudShader.h"
 
-DepthCamera::DepthCamera(RenderMode renderMode, VideoMode videoMode) : calibratedTransform(1.0f), renderMode(renderMode), videoMode(videoMode) {
+DepthCamera::DepthCamera(RenderMode renderMode, VideoMode videoMode) : calibratedTransform(1.0f), renderMode(renderMode), videoMode(videoMode), gpuTransformer(videoMode){
     if(renderMode == RenderMode::HEADLESS) {
         this->setupGpuMemoryHeadless(videoMode);
     } else {
@@ -33,8 +33,25 @@ void DepthCamera::setupGpuMemoryOpenGL(VideoMode mode) {
     // Let the renderer set up OpenGL handles, then bind them to CUDA handles
     this->renderer = new TexturedPointcloudRenderer(videoMode, shaderSingleton);
     // Map textures to CUDA
-    this->mapGlTextureToCuda(this->renderer->getColorTextureHandle(), &this->cuArrayTexRgba, &this->cuSurfaceObjectTexRgba);
-    this->mapGlTextureToCuda(this->renderer->getDepthTextureHandle(), &this->cuArrayTexDepth, &this->cuSurfaceObjectTexDepth);
+    this->mapGlTextureToCudaArray(this->renderer->getColorTextureHandle(), &this->cuArrayTexRgba);
+    //this->mapGlTextureToCudaArray(this->renderer->getDepthTextureHandle(), &this->cuArrayTexDepth, &this->cuSurfaceObjectTexDepth);
+
+    // Create surface object for RGBA texture
+    struct cudaResourceDesc resDesc;
+    memset(&resDesc, 0, sizeof(resDesc));
+    resDesc.resType = cudaResourceTypeArray;
+    resDesc.res.array.array = this->cuArrayTexRgba;
+    cudaCreateSurfaceObject(&this->cuSurfaceObjectTexRgba, &resDesc);
+
+    // Create texture object for RGBA texture(used for interpolated read)
+    struct cudaTextureDesc texDesc;
+    memset(&texDesc, 0, sizeof(texDesc));
+    texDesc.addressMode[0] = cudaAddressModeWrap;
+    texDesc.addressMode[1] = cudaAddressModeWrap;
+    texDesc.filterMode = cudaFilterModeLinear;
+    texDesc.readMode = cudaReadModeNormalizedFloat;
+    texDesc.normalizedCoords = 1;
+    cudaCreateTextureObject(&this->cuTextureObjectRgba, &resDesc, &texDesc, nullptr);
 
     // Map buffers to CUDA
     this->mapGlBufferToCuda(this->renderer->getPointBufferHandle(), &this->devPtrPoints);
@@ -42,7 +59,7 @@ void DepthCamera::setupGpuMemoryOpenGL(VideoMode mode) {
 }
 
 
-void DepthCamera::mapGlTextureToCuda(GLuint glTexture, cudaArray_t* cudaArray, cudaSurfaceObject_t* surfaceObject) {
+void DepthCamera::mapGlTextureToCudaArray(GLuint glTexture, cudaArray_t* cudaArray) {
     // Create CUDA mapping
     cudaGraphicsResource_t graphicsResource;
     cudaGraphicsGLRegisterImage(&graphicsResource, glTexture, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsSurfaceLoadStore);
@@ -50,15 +67,6 @@ void DepthCamera::mapGlTextureToCuda(GLuint glTexture, cudaArray_t* cudaArray, c
     cudaGraphicsMapResources(1, &graphicsResource, 0);
     cudaGraphicsSubResourceGetMappedArray(cudaArray, graphicsResource, 0, 0);
     cudaGraphicsUnmapResources(1, &graphicsResource, 0);
-
-    // Create surface object(Used when reading/writing to the texture)
-    struct cudaResourceDesc resDesc;
-    memset(&resDesc, 0, sizeof(resDesc));
-    resDesc.resType = cudaResourceTypeArray;
-
-    // Create the surface objects
-    resDesc.res.array.array = *cudaArray;
-    cudaCreateSurfaceObject(surfaceObject, &resDesc);
 }
 
 void DepthCamera::mapGlBufferToCuda(GLuint glBuffer, void** devPtr) {
@@ -85,9 +93,10 @@ DepthCamera::~DepthCamera() {
     //TODO unregister
     cudaFreeArray(this->cuArrayTexRgba);
     cudaDestroySurfaceObject(this->cuSurfaceObjectTexRgba);
+    cudaDestroyTextureObject(this->cuTextureObjectRgba);
 
-    cudaFreeArray(this->cuArrayTexDepth);
-    cudaDestroySurfaceObject(this->cuSurfaceObjectTexDepth);
+    //cudaFreeArray(this->cuArrayTexDepth);
+    //cudaDestroySurfaceObject(this->cuSurfaceObjectTexDepth);
 /*
     cudaFreeArray(this->cuArrayPoints);
     cudaDestroySurfaceObject(this->cuSurfaceObjectPoints);
@@ -95,6 +104,7 @@ DepthCamera::~DepthCamera() {
     cudaFreeArray(this->cuArrayTexCoords);
     cudaDestroySurfaceObject(this->cuSurfaceObjectTexCoords);
     */
+
 }
 
 void DepthCamera::drawImmediateGui() {
@@ -142,4 +152,15 @@ void DepthCamera::processingThread() {
     }
     std::cout << this->getSerial() << " shutting down" << std::endl;
     this->endCapture();
+}
+
+void DepthCamera::capturePoints(glm::vec3** points, glm::vec3** colors, int* count, glm::mat4x4 captureTransform) {
+    if(this->pointCount > this->videoMode.colorWidth*this->videoMode.colorHeight) {
+        std::cout << "Too many points" << std::endl;
+        throw "Too many points!";
+    }
+    glm::mat4x4 finalTransform = captureTransform*this->calibratedTransform;
+    this->gpuTransformer.transformPoints(this->devPtrPoints, this->cuTextureObjectRgba, devPtrTexCoords, this->pointCount, finalTransform);
+    this->gpuTransformer.getBuffers(points, colors);
+    *count = this->pointCount;
 }
