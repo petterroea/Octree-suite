@@ -15,7 +15,7 @@
 #include <fstream>
 
 
-Capturer::Capturer(std::vector<DepthCamera*> cameras) : cameras(cameras) {
+Capturer::Capturer(std::vector<DepthCamera*> cameras) : cameras(cameras), writer(1920*1080*cameras.size()) {
 
 }
 

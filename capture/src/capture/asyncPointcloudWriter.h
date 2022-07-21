@@ -11,7 +11,15 @@ struct Pointcloud {
     int count;
 };
 
+struct Point {
+    glm::vec3 pos;
+    glm::vec3 color;
+};
+
 class AsyncPointcloudWriter {
+    int maxExpectedPoints;
+    Point* points;
+
     pthread_t hThread;
 
     sem_t jobStartSemaphore;
@@ -24,7 +32,7 @@ class AsyncPointcloudWriter {
     static void threadEntrypoint(AsyncPointcloudWriter* me);
     void writeThread();
 public:
-    AsyncPointcloudWriter();
+    AsyncPointcloudWriter(int maxExpectedPoints);
     ~AsyncPointcloudWriter();
 
     void write(std::vector<Pointcloud> pointclouds);

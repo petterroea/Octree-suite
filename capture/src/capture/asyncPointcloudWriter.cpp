@@ -4,7 +4,9 @@
 #include <chrono>
 #include <iostream>
 
-AsyncPointcloudWriter::AsyncPointcloudWriter() {
+AsyncPointcloudWriter::AsyncPointcloudWriter(int maxExpectedPoints) : maxExpectedPoints(maxExpectedPoints) {
+    //Pre-allocate a write buffer to save time when writing
+    this->points = new Point[maxExpectedPoints];
     sem_init(&this->jobStartSemaphore, 0, 0);
     sem_init(&this->jobFinishedSemaphore, 0, 1);
     this->hThread = pthread_create(&this->hThread, NULL, (void* (*)(void*))AsyncPointcloudWriter::threadEntrypoint, (void*)this);
@@ -12,6 +14,7 @@ AsyncPointcloudWriter::AsyncPointcloudWriter() {
 
 AsyncPointcloudWriter::~AsyncPointcloudWriter() {
     pthread_join(this->hThread, NULL);
+    delete this->points;
 }
 
 void AsyncPointcloudWriter::threadEntrypoint(AsyncPointcloudWriter* me) {
@@ -31,37 +34,23 @@ void AsyncPointcloudWriter::writeThread() {
         for(auto pointcloud : this->job) {
             for(int i = 0; i < pointcloud.count; i++) {
                 auto point = pointcloud.points[i];
+                auto color = pointcloud.colors[i];
                 if(VALID_POINT(point)) {
+                    this->points[vertexCount].pos = point;
+                    this->points[vertexCount].color = color;
                     vertexCount++;
                 }
             }
         }
-        // Write the header
-        std::ofstream handle;
-        handle.open("capture_" + std::to_string(this->writeCount) + ".ply");
-        handle << "ply" << std::endl;
-        handle << "format ascii 1.0" << std::endl;
-        handle << "element vertex " << vertexCount << std::endl;
-        handle << "property float x" << std::endl;
-        handle << "property float y" << std::endl;
-        handle << "property float z" << std::endl;
-        // TODO save filespace by saving as uchar?
-        handle << "property float r" << std::endl;
-        handle << "property float g" << std::endl;
-        handle << "property float b" << std::endl;
-        handle << "end_header" << std::endl;
+        char headerBuffer[1000];
+        int headerLen = sprintf(headerBuffer, "ply\nformat binary_little_endian 1.0\nelement vertex %d\nproperty float x\nproperty float y\nproperty float z\nproperty float r\nproperty float g\nproperty float g\nend_header\n", vertexCount);
 
-        // Write the vertices
-        for(auto pointcloud : this->job) {
-            for(int i = 0; i < pointcloud.count; i++) {
-                auto point = pointcloud.points[i];
-                auto color = pointcloud.colors[i];
-                if(VALID_POINT(point)) {
-                    handle << point.x << " " << point.y << " " << point.z << " "
-                    << color.x << " " << color.y << " " << color.z << std::endl;
-                }
-            }
-        }
+        std::ofstream handle;
+        handle.open("capture_" + std::to_string(this->writeCount) + ".ply", std::ios::binary);
+        // Write the header
+        handle.write(headerBuffer, headerLen);
+        // Write the body
+        handle.write((char*)this->points, vertexCount*sizeof(Point));
 
         this->writeCount++;
         handle.close();
