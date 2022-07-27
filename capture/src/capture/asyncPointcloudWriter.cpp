@@ -43,7 +43,7 @@ void AsyncPointcloudWriter::writeThread() {
             }
         }
         char headerBuffer[1000];
-        int headerLen = sprintf(headerBuffer, "ply\nformat binary_little_endian 1.0\nelement vertex %d\nproperty float x\nproperty float y\nproperty float z\nproperty float r\nproperty float g\nproperty float g\nend_header\n", vertexCount);
+        int headerLen = sprintf(headerBuffer, "ply\nformat binary_little_endian 1.0\nelement vertex %d\nproperty float x\nproperty float y\nproperty float z\nproperty float r\nproperty float g\nproperty float b\nend_header\n", vertexCount);
 
         std::ofstream handle;
         handle.open("capture_" + std::to_string(this->writeCount) + ".ply", std::ios::binary);
