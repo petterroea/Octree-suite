@@ -1,5 +1,7 @@
 #include "capturer.h"
 
+#include <utils.h>
+
 #include <imgui.h>
 
 #include <opencv2/highgui.hpp>
@@ -13,11 +15,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <iostream>
-#include <iomanip>
-#include <ctime>
-#include <sstream>
 #include <fstream>
+#include <filesystem>
 
+
+namespace fs = std::filesystem;
 
 Capturer::Capturer(std::vector<DepthCamera*> cameras) : cameras(cameras), writer(1920*1080*cameras.size()) {
 
@@ -56,7 +58,7 @@ void Capturer::getFrame() {
     }
 }
 
-void Capturer::saveCalibration() {
+void Capturer::saveCalibration(std::string filename) {
     rapidjson::Document d;
     d.SetObject();
     rapidjson::Document::AllocatorType& allocator = d.GetAllocator();
@@ -70,11 +72,11 @@ void Capturer::saveCalibration() {
             .PushBack(matrix[2][0], allocator).PushBack(matrix[2][1], allocator).PushBack(matrix[2][2], allocator).PushBack(matrix[2][3], allocator)
             .PushBack(matrix[3][0], allocator).PushBack(matrix[3][1], allocator).PushBack(matrix[3][2], allocator).PushBack(matrix[3][3], allocator);
 
-        rapidjson::Value key(device->getSerial().c_str(), d.GetAllocator()); // copy string name
-        d.AddMember(key, deviceMatrixArray, d.GetAllocator());
+        rapidjson::Value key(device->getSerial().c_str(), allocator); // copy string name
+        d.AddMember(key, deviceMatrixArray, allocator);
     }
 
-    std::ofstream out("calibration.json");
+    std::ofstream out(filename);
     rapidjson::OStreamWrapper osw(out);
 
     rapidjson::Writer<rapidjson::OStreamWrapper> writer(osw);
@@ -173,11 +175,13 @@ void Capturer::displayGui() {
         if(ImGui::Button("Capture video")) {
             std::cout << "Starting video capture" << std::endl;
 
-            std::ostringstream oss;
-            auto t = std::time(nullptr);
-            auto tm = *std::localtime(&t);
-            oss << std::put_time(&tm, "%d-%m-%Y-%H-%M-%S");
-            auto time_str = oss.str();
+            auto time_str = currentTimeAsString();
+
+            //Create a directory for the capture
+            auto capture_directory = "./captures/" + time_str;
+            fs::create_directories(capture_directory);
+            this->saveCalibration(capture_directory + "/camera_poses.json");
+            this->saveVideoMetadata(capture_directory + "/metadata.json");
 
             this->videoCapture = true;
             this->captureStart = std::chrono::system_clock::now();
@@ -189,7 +193,7 @@ void Capturer::displayGui() {
             }
             std::cout << "Threads joined" << std::endl;
             for(auto camera : this->cameras) {
-                camera->beginRecording("capture-" + time_str + camera->getSerial() + ".bag");
+                camera->beginRecording(capture_directory + "/capture-" + camera->getSerial() + ".bag");
             }
         }
     }
@@ -210,7 +214,7 @@ void Capturer::displayGui() {
 
     ImGui::Begin("Utils");
     if(ImGui::Button("Save calibration to JSON")) {
-        saveCalibration();
+        saveCalibration("calibration.json");
     }
     ImGui::SameLine();
     if(ImGui::Button("Load calibration from JSON")) {
@@ -227,4 +231,40 @@ void Capturer::displayGui() {
         }
     }
     ImGui::End();
+}
+
+void Capturer::saveVideoMetadata(std::string filename) {
+    rapidjson::Document d;
+    d.SetObject();
+    rapidjson::Document::AllocatorType& allocator = d.GetAllocator();
+    {
+        rapidjson::Value version;
+        version.SetString("realsense");
+
+        rapidjson::Value key;
+        key.SetString("make");
+        d.AddMember(key, version, allocator);
+    }
+    {
+        rapidjson::Value version;
+        version.SetString("1");
+
+        rapidjson::Value key;
+        key.SetString("version");
+        d.AddMember(key, version, allocator);
+    }
+    rapidjson::Value capture_time;
+    auto time_str = currentTimeAsString();
+    std::cout << "current time: " << time_str << std::endl;
+    capture_time.SetString(rapidjson::StringRef(time_str));
+
+    rapidjson::Value key;
+    key.SetString("capture_time");
+    d.AddMember(key, capture_time, allocator);
+
+    std::ofstream out(filename);
+    rapidjson::OStreamWrapper osw(out);
+
+    rapidjson::Writer<rapidjson::OStreamWrapper> writer(osw);
+    d.Accept(writer);
 }

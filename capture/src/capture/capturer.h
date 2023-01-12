@@ -1,5 +1,10 @@
+#pragma once
+
+#define RAPIDJSON_HAS_STDSTRING 1
+
 #include <vector>
 #include <chrono>
+#include <string>
 
 #include "../depthCamera/depthCamera.h"
 #include "captureSettings.h"
@@ -13,6 +18,8 @@ class Capturer {
     bool autoCalibrate = false;
     int autoCalibrateTreshold = 45;
 
+    void saveVideoMetadata(std::string filename);
+
     //Video-related stuff
     bool videoCapture = false;
     int framesCaptured = 0;
@@ -25,7 +32,7 @@ public:
     void render(glm::mat4x4& view, glm::mat4x4& proj);
     void displayGui();
 
-    void saveCalibration();
+    void saveCalibration(std::string filename);
     void loadCalibration();
 
     inline bool isCapturingVideo() { return this->videoCapture; };
