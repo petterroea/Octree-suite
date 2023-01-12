@@ -54,13 +54,30 @@ std::string RealsenseDepthCamera::getKind() {
     return "RealSense Camera";
 }
 
-void RealsenseDepthCamera::beginCapture() {
-    this->config.enable_device(this->device.get_info(rs2_camera_info::RS2_CAMERA_INFO_SERIAL_NUMBER));
+void RealsenseDepthCamera::beginStreaming() {
+    std::cout << this->getSerial() << "Starting streaming" << std::endl;
+    rs2::config config;
+    config.enable_device(this->device.get_info(rs2_camera_info::RS2_CAMERA_INFO_SERIAL_NUMBER));
     //this->config.enable_all_streams();
-    this->config.enable_stream(RS2_STREAM_COLOR, 1920, 1080, RS2_FORMAT_RGB8, 30);
-    this->config.enable_stream(RS2_STREAM_DEPTH, 1280, 720, RS2_FORMAT_Z16, 30);
+    config.enable_stream(RS2_STREAM_COLOR, 1920, 1080, RS2_FORMAT_RGB8, 30);
+    config.enable_stream(RS2_STREAM_DEPTH, 1280, 720, RS2_FORMAT_Z16, 30);
 
-    this->capturePipeline.start(this->config);
+    this->capturePipeline.start(config);
+    this->startCaptureThread();
+}
+
+void RealsenseDepthCamera::beginRecording(const std::string filename) {
+    std::cout << this->getSerial() << "Starting recording" << std::endl;
+    rs2::config config;
+    config.enable_device(this->device.get_info(rs2_camera_info::RS2_CAMERA_INFO_SERIAL_NUMBER));
+    //this->config.enable_all_streams();
+    config.enable_stream(RS2_STREAM_COLOR, 1920, 1080, RS2_FORMAT_RGB8, 30);
+    config.enable_stream(RS2_STREAM_DEPTH, 1280, 720, RS2_FORMAT_Z16, 30);
+
+    config.enable_record_to_file(filename);
+
+    this->capturePipeline.start(config);
+    this->startCaptureThread();
 }
 
 void RealsenseDepthCamera::processFrame() {
@@ -109,8 +126,8 @@ void RealsenseDepthCamera::processFrame() {
     std::cout << this->getSerial() << " completed processing in " << elapsed_time << "ms (processing " << processing_time << " pointcloud " << pointcloud_time << ", gpu upload " << gpu_upload_time << ")" << std::endl;
 }
 
-void RealsenseDepthCamera::endCapture() {
-    std::cout << this->getSerial() << " shutting down" << std::endl;
+void RealsenseDepthCamera::postCaptureCleanup() {
+    std::cout << this->getSerial() << " cleaning up" << std::endl;
     this->capturePipeline.stop();
 }
 

@@ -1,4 +1,5 @@
 #include <vector>
+#include <chrono>
 
 #include "../depthCamera/depthCamera.h"
 #include "captureSettings.h"
@@ -12,6 +13,11 @@ class Capturer {
     bool autoCalibrate = false;
     int autoCalibrateTreshold = 45;
 
+    //Video-related stuff
+    bool videoCapture = false;
+    int framesCaptured = 0;
+    std::chrono::time_point<std::chrono::system_clock> captureStart;
+
 public:
     Capturer(std::vector<DepthCamera*> cameras);
 
@@ -21,6 +27,8 @@ public:
 
     void saveCalibration();
     void loadCalibration();
+
+    inline bool isCapturingVideo() { return this->videoCapture; };
 
     void capture();
 };

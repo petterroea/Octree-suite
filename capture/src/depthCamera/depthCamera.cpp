@@ -113,23 +113,27 @@ void DepthCamera::drawImmediateGui() {
 }
 
 void DepthCamera::startCaptureThread() {
+    std::cout << this->getSerial() << " starting capture thread" << std::endl;
     sem_init(&this->frameRequestSemaphore, 0, 0);
     sem_init(&this->frameReceivedSemaphore, 0, 0);
+
+    this->running = true;
     this->hThread = pthread_create(&this->hThread, NULL, (void* (*)(void*))DepthCamera::threadEntrypoint, (void*)this);
 }
 
 void DepthCamera::endCaptureThread() {
     this->running = false;
     // Make sure the loop gets to finish
-    this->requestFrame();
+    //this->requestFrame();
 }
 
 void DepthCamera::waitForThreadJoin() {
     pthread_join(this->hThread, NULL);
+    std::cout << this->getSerial() << " shutting down" << std::endl;
+    this->postCaptureCleanup();
 }
 
 void DepthCamera::threadEntrypoint(DepthCamera* self) {
-    // processingThread is a virtual function implemented by the device "driver"
     self->processingThread();
 }
 
@@ -142,16 +146,14 @@ void DepthCamera::waitForNewFrame() {
 }
 
 void DepthCamera::processingThread() {
-    this->beginCapture();
-
+    std::cout << this->getSerial() << "Capture thread started" << std::endl;
     while(this->running) {
         sem_wait(&this->frameRequestSemaphore);
         this->processFrame();
 
         sem_post(&this->frameReceivedSemaphore);
     }
-    std::cout << this->getSerial() << " shutting down" << std::endl;
-    this->endCapture();
+    std::cout << this->getSerial() << " thread stopped" << std::endl;
 }
 
 void DepthCamera::capturePoints(glm::vec3** points, glm::vec3** colors, int* count, glm::mat4x4 captureTransform) {

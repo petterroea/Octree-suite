@@ -3,6 +3,7 @@
 #include <GL/glew.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <string>
 
 #include <librealsense2/rs.hpp>
 
@@ -34,10 +35,12 @@ protected:
     VideoMode videoMode;
     RenderMode renderMode;
 
+    // Start the capture thread
+    void startCaptureThread();
+    // Thread functions
     void processingThread();
     virtual void processFrame() = 0;
-    virtual void beginCapture() = 0;
-    virtual void endCapture() = 0;
+    virtual void postCaptureCleanup() = 0;
 
     bool running = true;
 
@@ -81,8 +84,10 @@ public:
 
     void drawImmediateGui();
 
-    // Start the capture thread
-    void startCaptureThread();
+    // Start functions
+    virtual void beginStreaming() = 0;
+    virtual void beginRecording(const std::string filename) = 0;
+
     // Thread shutdown
     void endCaptureThread();
     void waitForThreadJoin();

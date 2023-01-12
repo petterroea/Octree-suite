@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
         RealsenseDepthCamera* camera = new RealsenseDepthCamera(RenderMode::OPENGL, dev, first);
         first = false;
 
-        camera->startCaptureThread();
+        camera->beginStreaming();
         deviceList.push_back(camera);
     }
 
@@ -212,42 +212,12 @@ int main(int argc, char** argv) {
             100.0f
         );
 
+        std::cout << "======== FRAME" << std::endl;
         capturer.displayGui();
-        capturer.getFrame();
-        capturer.render(view, projection);
-/*
-        for(auto device : deviceList) {
-            DepthCamera* camera = device->camera;
-            // Waits for the frame processing to be complete. Actions performed after this should be thread safe
-            camera->waitForNewFrame();
-
-            ImGui::PushID(camera->getSerial().c_str());
-            ImGui::Text(("RealSense device: " + camera->getSerial()).c_str());
-            PointcloudRenderer* renderer = device->renderer;
-
-            if(device->capture) {
-                camera->uploadTextures();
-                rs2::points pointcloud = camera->getLastPointcloud();
-                renderer->updateData(pointcloud);
-            }
-            //rs2::frameset frame = camera->processFrame();
-            //camera->drawImmediateGui();
-
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, camera->getColorTextureHandle());
-            renderer->render(camera->getCalibration(), view, projection);
-
-            ImGui::Checkbox("Capture", &device->capture);
-            camera->drawImmediateGui();
-            if(ImGui::CollapsingHeader("Textures")) {
-                ImGui::Image((void*)(intptr_t)camera->getDepthTextureHandle(), ImVec2(600, 400));
-                ImGui::SameLine();
-                ImGui::Image((void*)(intptr_t)camera->getColorTextureHandle(), ImVec2(600, 400));
-            }
-            ImGui::Separator();
-            ImGui::PopID();
+        if(!capturer.isCapturingVideo()) {
+            capturer.getFrame();
+            capturer.render(view, projection);
         }
-*/
 
         ImGui::Begin("Performance");
 

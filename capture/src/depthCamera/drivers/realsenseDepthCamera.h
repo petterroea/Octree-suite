@@ -2,7 +2,6 @@
 
 class RealsenseDepthCamera : public DepthCamera{
     rs2::device device;
-    rs2::config config;
     rs2::pointcloud pointcloud;
 
     rs2::vertex* lastVertices = nullptr;
@@ -15,8 +14,7 @@ class RealsenseDepthCamera : public DepthCamera{
 
     //Thread functions
     virtual void processFrame();
-    virtual void beginCapture();
-    virtual void endCapture();
+    virtual void postCaptureCleanup();
 
     // Upload the RGB texture to this first, then
     // use a cuda kernel to add the alpha channel and
@@ -28,6 +26,10 @@ class RealsenseDepthCamera : public DepthCamera{
 public:
     RealsenseDepthCamera(RenderMode renderMode, rs2::device device, bool master);
     ~RealsenseDepthCamera();
+
+    //Startup functions
+    virtual void beginStreaming();
+    virtual void beginRecording(const std::string filename);
 
     std::string getSerial();
     std::string getKind();

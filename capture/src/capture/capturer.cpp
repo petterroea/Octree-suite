@@ -12,6 +12,10 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <iostream>
+#include <iomanip>
+#include <ctime>
+#include <sstream>
 #include <fstream>
 
 
@@ -20,6 +24,7 @@ Capturer::Capturer(std::vector<DepthCamera*> cameras) : cameras(cameras), writer
 }
 
 void Capturer::getFrame() {
+    std::cout << "- getFrame called" << std::endl;
     for(auto device : this->cameras) {
         if(this->autoCalibrate) {
             device->setCalibrationEnabled(true);
@@ -111,6 +116,10 @@ void Capturer::render(glm::mat4x4& view, glm::mat4x4& proj) {
         device->getRenderer()->render(device->getCalibration(), view, proj, device->getPointCount());
     }
     this->settings.renderHelpLines(view, proj);
+
+    if(this->videoCapture) {
+        this->framesCaptured++;
+    }
 }
 
 void Capturer::capture() {
@@ -136,8 +145,53 @@ void Capturer::capture() {
 void Capturer::displayGui() {
     ImGui::Begin("Capture");
     this->settings.displayGui();
-    if(ImGui::Button("Cheese!")) {
+    if(ImGui::Button("Capture pointcloud")) {
         this->capture();
+    }
+    if(this->videoCapture) {
+        if(ImGui::Button("Stop capture")) {
+            std::cout << "Ending video capture" << std::endl;
+            this->videoCapture = false;
+            this->framesCaptured = 0;
+            for(auto camera : this->cameras) {
+                camera->endCaptureThread();
+            }
+            std::cout << "Sent stop signal to threads" << std::endl;
+            for(auto camera : this->cameras) {
+                camera->waitForThreadJoin();
+            }
+            std::cout << "Threads joined" << std::endl;
+            for(auto camera : this->cameras) {
+                camera->beginStreaming();
+            }
+            std::cout << "Streaming started" << std::endl;
+        }
+        std::chrono::duration<float> elapsedTime = (std::chrono::system_clock::now() - this->captureStart);
+        float fps = static_cast<float>(this->framesCaptured) / elapsedTime.count();
+        ImGui::Text("%d frames in %lf seconds(%f FPS)", this->framesCaptured, elapsedTime.count(), fps);
+    } else {
+        if(ImGui::Button("Capture video")) {
+            std::cout << "Starting video capture" << std::endl;
+
+            std::ostringstream oss;
+            auto t = std::time(nullptr);
+            auto tm = *std::localtime(&t);
+            oss << std::put_time(&tm, "%d-%m-%Y-%H-%M-%S");
+            auto time_str = oss.str();
+
+            this->videoCapture = true;
+            this->captureStart = std::chrono::system_clock::now();
+            for(auto camera : this->cameras) {
+                camera->endCaptureThread();
+            }
+            for(auto camera : this->cameras) {
+                camera->waitForThreadJoin();
+            }
+            std::cout << "Threads joined" << std::endl;
+            for(auto camera : this->cameras) {
+                camera->beginRecording("capture-" + time_str + camera->getSerial() + ".bag");
+            }
+        }
     }
     ImGui::End();
     ImGui::Begin("Devices");
