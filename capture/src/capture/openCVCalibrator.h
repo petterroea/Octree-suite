@@ -6,6 +6,8 @@
 #include <opencv2/core.hpp>
 #include <opencv2/aruco.hpp>
 
+#include <cameraCalibrator.h>
+
 extern cv::Ptr<cv::aruco::Dictionary> openCVCalibrationDictionary;
 extern cv::Ptr<cv::aruco::GridBoard> openCVCalibrationBoard;
 
@@ -15,7 +17,7 @@ extern cv::Ptr<cv::aruco::GridBoard> openCVCalibrationBoard;
  * 
  * Currently mostly used to communicate state between a potential processing thread and the ImGui thread
  */
-class OpenCVCalibrator {
+class OpenCVCalibrator : public CameraCalibrator {
     // Signal from processing thread
     int lastDetectedMarkers = 0;
     bool isValidPose = false;

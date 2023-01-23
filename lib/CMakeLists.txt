@@ -28,6 +28,8 @@ file(GLOB_RECURSE DIR_LIB_SRC ${CMAKE_CURRENT_LIST_DIR}/src/**/*.cpp ${CMAKE_CUR
 message(STATUS "lib_src=${DIR_LIB_SRC}")
 
 add_library(${PROJECT_NAME} ${DIR_LIB_SRC})
+
+target_include_directories(${PROJECT_NAME} PUBLIC "../rapidjson/include")
 # Define the library
 #target_link_libraries(${CAPTURE_EXECUTABLE_NAME} ${SDL2_LIBRARIES})
 #target_link_libraries(${CAPTURE_EXECUTABLE_NAME} GL)

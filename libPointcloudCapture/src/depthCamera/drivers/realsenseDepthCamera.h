@@ -24,7 +24,7 @@ class RealsenseDepthCamera : public DepthCamera{
 
     void uploadToGpu();
 public:
-    RealsenseDepthCamera(RenderMode renderMode, rs2::device device, bool master);
+    RealsenseDepthCamera(CameraCalibrator* cameraCalibrator, RenderMode renderMode, rs2::device device, bool master);
     ~RealsenseDepthCamera();
 
     //Startup functions

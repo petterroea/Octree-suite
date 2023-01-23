@@ -6,12 +6,13 @@
 #include <chrono>
 #include <string>
 
-#include "../depthCamera/depthCamera.h"
+#include <depthCamera/depthCamera.h>
 #include "captureSettings.h"
+#include "captureDevice.h"
 #include "asyncPointcloudWriter.h"
 
 class Capturer {
-    std::vector<DepthCamera*> cameras;
+    std::vector<CaptureDevice*> captureDevices;
     CaptureSettings settings;
     AsyncPointcloudWriter writer;
 
@@ -19,6 +20,7 @@ class Capturer {
     int autoCalibrateTreshold = 45;
 
     void saveVideoMetadata(std::string filename);
+    glm::mat4x4 getCaptureTransform();
 
     //Video-related stuff
     bool videoCapture = false;
@@ -26,7 +28,8 @@ class Capturer {
     std::chrono::time_point<std::chrono::system_clock> captureStart;
 
 public:
-    Capturer(std::vector<DepthCamera*> cameras);
+    Capturer(std::vector<CaptureDevice*> cameras);
+    ~Capturer();
 
     void getFrame();
     void render(glm::mat4x4& view, glm::mat4x4& proj);

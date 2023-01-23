@@ -6,7 +6,7 @@
 
 #include "../../kernels/cudaPitchRgbToRgba.h"
 
-RealsenseDepthCamera::RealsenseDepthCamera(RenderMode renderMode, rs2::device device, bool master) : DepthCamera(renderMode, VideoMode{
+RealsenseDepthCamera::RealsenseDepthCamera(CameraCalibrator* cameraCalibrator, RenderMode renderMode, rs2::device device, bool master) : DepthCamera(cameraCalibrator, renderMode, VideoMode{
     .colorWidth = 1920,
     .colorHeight = 1080,
     .depthWidth = 1280,
@@ -87,12 +87,12 @@ void RealsenseDepthCamera::processFrame() {
     // Wait for a frame from realSense
     this->lastFrame = this->capturePipeline.wait_for_frames();
 
-    if(this->calibrationEnabled) {
+    if(this->cameraCalibrator->isEnabled()) {
         // Align the color frame to the depth frame so OpenCV gets correct data
         rs2::align align_to_depth(RS2_STREAM_DEPTH);
         rs2::frameset alignedFrameset = align_to_depth.process(this->lastFrame);
         rs2::video_frame colorFrame = alignedFrameset.get_color_frame();
-        this->calibrator.tryCalibrateCameraPosition(this->calibratedTransform, colorFrame);
+        this->cameraCalibrator->tryClaibrateCameraPosition(colorFrame.get_width(), colorFrame.get_height(), (void*)colorFrame.get_data());
     }
     std::cout << this->getSerial() << " processed a frame" << std::endl;
     auto processing_end = std::chrono::system_clock::now();

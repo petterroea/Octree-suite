@@ -1,8 +1,10 @@
 #include "depthCamera.h"
 
+#ifndef HEADLESS_RELEASE
 #include <imgui.h>
 
 #include <cuda_gl_interop.h>
+#endif
 
 #include <librealsense2/hpp/rs_device.hpp>
 
@@ -10,20 +12,30 @@
 #include <glm/gtx/transform.hpp>
 
 #include <iostream>
+#include <exception>
 
 #include <cudaHelpers.h>
 
-#include "openCVCalibrator.h"
-#include "../render/shaders/pointcloudShader.h"
+//#include "../render/shaders/pointcloudShader.h"
 
-DepthCamera::DepthCamera(RenderMode renderMode, VideoMode videoMode) : calibratedTransform(1.0f), renderMode(renderMode), videoMode(videoMode), gpuTransformer(videoMode){
+DepthCamera::DepthCamera(CameraCalibrator* calibrator, RenderMode renderMode, VideoMode videoMode) : cameraCalibrator(cameraCalibrator), calibratedTransform(1.0f), renderMode(renderMode), videoMode(videoMode), gpuTransformer(videoMode){
     if(renderMode == RenderMode::HEADLESS) {
+#ifdef HEADLESS_RELEASE
         this->setupGpuMemoryHeadless(videoMode);
+#else
+        //TODO unneccecary?
+        throw std::invalid_argument("Library is not compiled for headless operations");
+#endif
     } else {
+#ifdef HEADLESS_RELEASE
+        throw std::invalid_argument("Library is not compiled for OpenGL");
+#else
         this->setupGpuMemoryOpenGL(videoMode);
+#endif
     }
 }
 
+#ifndef HEADLESS_RELEASE
 PointcloudShader* shaderSingleton = nullptr;
 
 void DepthCamera::setupGpuMemoryOpenGL(VideoMode mode) {
@@ -81,15 +93,18 @@ void DepthCamera::mapGlBufferToCuda(GLuint glBuffer, void** devPtr) {
     CUDA_CATCH_ERROR
     cudaGraphicsUnmapResources(1, &graphicsResource, 0);
 }
+#endif
 
 void DepthCamera::setupGpuMemoryHeadless(VideoMode mode) {
     throw "TODO";
 }
 
 DepthCamera::~DepthCamera() {
+#ifndef HEADLESS_RELEASE
     if(this->renderer != nullptr) {
         delete this->renderer;
     }
+#endif
     //TODO unregister
     cudaFreeArray(this->cuArrayTexRgba);
     cudaDestroySurfaceObject(this->cuSurfaceObjectTexRgba);
@@ -105,11 +120,6 @@ DepthCamera::~DepthCamera() {
     cudaDestroySurfaceObject(this->cuSurfaceObjectTexCoords);
     */
 
-}
-
-void DepthCamera::drawImmediateGui() {
-    ImGui::Checkbox("Enable OpenCV", &this->calibrationEnabled);
-    this->calibrator.drawImmediateGui();
 }
 
 void DepthCamera::startCaptureThread() {

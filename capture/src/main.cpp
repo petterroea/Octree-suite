@@ -24,7 +24,7 @@
 
 #include "capture/capturer.h"
 
-#include "depthCamera/openCVCalibrator.h"
+#include "capture/openCVCalibrator.h"
 
 void GLAPIENTRY
 MessageCallback( GLenum source,
@@ -104,15 +104,18 @@ int main(int argc, char** argv) {
 
     PointcloudShader* shader = new PointcloudShader();
 
-    std::vector<DepthCamera*> deviceList;
+    std::vector<CaptureDevice*> deviceList;
     bool first = true;
     for(auto&& dev : ctx.query_devices()) {
         std::cout << "Creating device" << std::endl;
-        RealsenseDepthCamera* camera = new RealsenseDepthCamera(RenderMode::OPENGL, dev, first);
+        OpenCVCalibrator* calibrator = new OpenCVCalibrator();
+        RealsenseDepthCamera* camera = new RealsenseDepthCamera(static_cast<CameraCalibrator*>(calibrator), RenderMode::OPENGL, dev, first);
+        CaptureDevice* device = new CaptureDevice(camera, calibrator);
+
         first = false;
 
         camera->beginStreaming();
-        deviceList.push_back(camera);
+        deviceList.push_back(device);
     }
 
     Capturer capturer(deviceList);
@@ -255,10 +258,10 @@ int main(int argc, char** argv) {
     }
 
     for(auto device : deviceList) {
-        device->endCaptureThread();
+        device->getDepthCamera()->endCaptureThread();
     }
     for(auto device : deviceList) {
-        device->waitForThreadJoin();
+        device->getDepthCamera()->waitForThreadJoin();
         delete device;
     }
 
