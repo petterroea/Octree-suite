@@ -18,7 +18,7 @@
 
 //#include "../render/shaders/pointcloudShader.h"
 
-DepthCamera::DepthCamera(CameraCalibrator* calibrator, RenderMode renderMode, VideoMode videoMode) : cameraCalibrator(cameraCalibrator), calibratedTransform(1.0f), renderMode(renderMode), videoMode(videoMode), gpuTransformer(videoMode){
+DepthCamera::DepthCamera(CameraCalibrator* calibrator, RenderMode renderMode, VideoMode videoMode) : cameraCalibrator(calibrator), calibratedTransform(1.0f), renderMode(renderMode), videoMode(videoMode), gpuTransformer(videoMode){
     if(renderMode == RenderMode::HEADLESS) {
 #ifdef HEADLESS_RELEASE
         this->setupGpuMemoryHeadless(videoMode);

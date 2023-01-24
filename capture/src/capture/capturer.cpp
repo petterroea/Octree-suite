@@ -21,7 +21,6 @@
 
 #include <json_helpers.h>
 
-
 namespace fs = std::filesystem;
 
 Capturer::Capturer(std::vector<CaptureDevice*> devices) : writer(1920*1080*devices.size()) {
