@@ -23,7 +23,7 @@
 
 namespace fs = std::filesystem;
 
-Capturer::Capturer(std::vector<CaptureDevice*> devices) : writer(1920*1080*devices.size()) {
+Capturer::Capturer(std::vector<CaptureDevice*> devices) : writer("./", 1920*1080*devices.size()) {
     this->captureDevices = devices;
 }
 Capturer::~Capturer() {

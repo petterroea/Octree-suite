@@ -3,8 +3,9 @@
 #include <fstream>
 #include <chrono>
 #include <iostream>
+#include <filesystem>
 
-AsyncPointcloudWriter::AsyncPointcloudWriter(int maxExpectedPoints) : maxExpectedPoints(maxExpectedPoints) {
+AsyncPointcloudWriter::AsyncPointcloudWriter(std::string outputDirectory, int maxExpectedPoints) : outputDirectory(outputDirectory), maxExpectedPoints(maxExpectedPoints) {
     //Pre-allocate a write buffer to save time when writing
     this->points = new Point[maxExpectedPoints];
     sem_init(&this->jobStartSemaphore, 0, 0);
@@ -46,7 +47,12 @@ void AsyncPointcloudWriter::writeThread() {
         int headerLen = sprintf(headerBuffer, "ply\nformat binary_little_endian 1.0\nelement vertex %d\nproperty float x\nproperty float y\nproperty float z\nproperty float r\nproperty float g\nproperty float b\nend_header\n", vertexCount);
 
         std::ofstream handle;
-        handle.open("capture_" + std::to_string(this->writeCount) + ".ply", std::ios::binary);
+
+        std::filesystem::path outputDirectory(this->outputDirectory);
+        std::filesystem::path filename("capture_" + std::to_string(this->writeCount) + ".ply");
+        std::filesystem::path fullFilename = outputDirectory / filename;
+
+        handle.open(fullFilename.string(), std::ios::binary);
         // Write the header
         handle.write(headerBuffer, headerLen);
         // Write the body

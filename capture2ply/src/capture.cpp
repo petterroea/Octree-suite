@@ -40,6 +40,12 @@ Capture::Capture(rapidjson::Document& document, std::filesystem::path workdir) {
 
         auto mode = RenderMode::HEADLESS;
         RealsenseDepthCamera* depthCamera = new RealsenseDepthCamera(RenderMode::HEADLESS, fullFilename.string(), device["serial"].GetString());
+
+        assert(device.HasMember("calibration"));
+        auto calibrationArray = device["calibration"].GetArray();
+        auto calibration = json_array_to_mat4x4(calibrationArray);
+        depthCamera->setCalibration(calibration);
+
         this->cameras.push_back(depthCamera);
     }
 }
@@ -56,7 +62,7 @@ void Capture::to_ply(std::string outputDirectory) {
         camera->beginStreaming();
     }
 
-    auto pointcloudWriter = new AsyncPointcloudWriter(1920*1080*this->cameras.size());
+    auto pointcloudWriter = new AsyncPointcloudWriter(outputDirectory, 1920*1080*this->cameras.size());
     // Loop
     int framecount = 0;
     auto processing_start = std::chrono::system_clock::now();

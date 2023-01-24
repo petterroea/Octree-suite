@@ -4,6 +4,7 @@
 #include <glm/vec3.hpp>
 
 #include <vector>
+#include <string>
 
 struct Pointcloud {
     glm::vec3* points;
@@ -26,13 +27,14 @@ class AsyncPointcloudWriter {
     sem_t jobFinishedSemaphore;
 
     std::vector<Pointcloud> job;
+    std::string outputDirectory;
 
     int writeCount = 0;
 
     static void threadEntrypoint(AsyncPointcloudWriter* me);
     void writeThread();
 public:
-    AsyncPointcloudWriter(int maxExpectedPoints);
+    AsyncPointcloudWriter(std::string outputDirectory, int maxExpectedPoints);
     ~AsyncPointcloudWriter();
 
     void write(std::vector<Pointcloud> pointclouds);
