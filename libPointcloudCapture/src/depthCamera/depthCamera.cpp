@@ -13,6 +13,7 @@
 
 #include <iostream>
 #include <exception>
+#include <cstring>
 
 #include <cudaHelpers.h>
 
@@ -96,7 +97,39 @@ void DepthCamera::mapGlBufferToCuda(GLuint glBuffer, void** devPtr) {
 #endif
 
 void DepthCamera::setupGpuMemoryHeadless(VideoMode mode) {
-    throw "TODO";
+    // Allocate texture buffers
+    struct cudaChannelFormatDesc formatDesc{
+        .x = 8,
+        .y = 8,
+        .z = 8,
+        .w = 8,
+        .f = cudaChannelFormatKindUnsigned
+    };
+    cudaMallocArray(&this->cuArrayTexRgba, &formatDesc, mode.colorWidth, mode.colorHeight, cudaArraySurfaceLoadStore);
+    CUDA_CATCH_ERROR
+
+    // Create surface object for RGBA texture
+    struct cudaResourceDesc resDesc;
+    memset(&resDesc, 0, sizeof(resDesc));
+    resDesc.resType = cudaResourceTypeArray;
+    resDesc.res.array.array = this->cuArrayTexRgba;
+    cudaCreateSurfaceObject(&this->cuSurfaceObjectTexRgba, &resDesc);
+
+    // Create texture object for RGBA texture(used for interpolated read)
+    struct cudaTextureDesc texDesc;
+    memset(&texDesc, 0, sizeof(texDesc));
+    texDesc.addressMode[0] = cudaAddressModeWrap;
+    texDesc.addressMode[1] = cudaAddressModeWrap;
+    texDesc.filterMode = cudaFilterModeLinear;
+    texDesc.readMode = cudaReadModeNormalizedFloat;
+    texDesc.normalizedCoords = 1;
+    cudaCreateTextureObject(&this->cuTextureObjectRgba, &resDesc, &texDesc, nullptr);
+
+    CUDA_CATCH_ERROR
+    // Allocate vector buffers
+    cudaMalloc(&this->devPtrPoints, mode.colorWidth * mode.colorHeight * 3 * sizeof(float));
+    cudaMalloc(&this->devPtrTexCoords, mode.colorWidth * mode.colorHeight * 2 * sizeof(float));
+    CUDA_CATCH_ERROR
 }
 
 DepthCamera::~DepthCamera() {
@@ -147,12 +180,19 @@ void DepthCamera::threadEntrypoint(DepthCamera* self) {
     self->processingThread();
 }
 
-void DepthCamera::requestFrame() {
+bool DepthCamera::requestFrame() {
     std::cout << this->getSerial() << " Requesting frame" << std::endl;
-    sem_post(&this->frameRequestSemaphore);
+    if(running) {
+        sem_post(&this->frameRequestSemaphore);
+        return true;
+    }
+    std::cout << this->getSerial() << " Unable to request frame - thread stopped" << std::endl;
+    return false;
 }
 void DepthCamera::waitForNewFrame() {
-    sem_wait(&this->frameReceivedSemaphore);
+    if(running) {
+        sem_wait(&this->frameReceivedSemaphore);
+    }
 }
 
 void DepthCamera::processingThread() {

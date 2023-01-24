@@ -95,7 +95,7 @@ public:
     void endCaptureThread();
     void waitForThreadJoin();
     // Start frame fetching in another thread
-    void requestFrame();
+    bool requestFrame();
     // Wait for frame fetch to finish
     void waitForNewFrame();
 

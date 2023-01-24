@@ -9,7 +9,7 @@
 #include <depthCamera/depthCamera.h>
 #include "captureSettings.h"
 #include "captureDevice.h"
-#include "asyncPointcloudWriter.h"
+#include <asyncPointcloudWriter.h>
 
 class Capturer {
     std::vector<CaptureDevice*> captureDevices;

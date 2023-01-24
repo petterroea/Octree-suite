@@ -109,7 +109,7 @@ int main(int argc, char** argv) {
     for(auto&& dev : ctx.query_devices()) {
         std::cout << "Creating device" << std::endl;
         OpenCVCalibrator* calibrator = new OpenCVCalibrator();
-        RealsenseDepthCamera* camera = new RealsenseDepthCamera(static_cast<CameraCalibrator*>(calibrator), RenderMode::OPENGL, dev, first);
+        RealsenseDepthCamera* camera = new RealsenseDepthCamera(static_cast<CameraCalibrator*>(calibrator), RenderMode::OPENGL, &dev, first);
         CaptureDevice* device = new CaptureDevice(camera, calibrator);
 
         first = false;

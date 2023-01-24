@@ -19,6 +19,8 @@ add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
 find_package(SDL2 REQUIRED)
 #message(STATUS, "sdl=${SDL2_INCLUDE_DIRS}")
 
+find_package(realsense2 REQUIRED)
+
 find_package(OpenGL REQUIRED)
 
 find_package(GLEW REQUIRED)
