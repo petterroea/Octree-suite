@@ -5,7 +5,7 @@
 #include <iostream>
 #include <filesystem>
 
-AsyncPointcloudWriter::AsyncPointcloudWriter(std::string outputDirectory, int maxExpectedPoints) : outputDirectory(outputDirectory), maxExpectedPoints(maxExpectedPoints) {
+AsyncPointcloudWriter::AsyncPointcloudWriter(std::filesystem::path outputDirectory, int maxExpectedPoints) : outputDirectory(outputDirectory), maxExpectedPoints(maxExpectedPoints) {
     //Pre-allocate a write buffer to save time when writing
     this->points = new Point[maxExpectedPoints];
     sem_init(&this->jobStartSemaphore, 0, 0);
@@ -48,9 +48,8 @@ void AsyncPointcloudWriter::writeThread() {
 
         std::ofstream handle;
 
-        std::filesystem::path outputDirectory(this->outputDirectory);
         std::filesystem::path filename("capture_" + std::to_string(this->writeCount) + ".ply");
-        std::filesystem::path fullFilename = outputDirectory / filename;
+        std::filesystem::path fullFilename = this->outputDirectory / filename;
 
         handle.open(fullFilename.string(), std::ios::binary);
         // Write the header

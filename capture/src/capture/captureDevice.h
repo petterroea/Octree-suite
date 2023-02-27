@@ -17,8 +17,5 @@ public:
 
     OpenCVCalibrator* getCalibrator();
 
-    bool isCalibrationEnabled();
-    void setCalibrationEnabled(bool newState);
-    
     void drawImmediateGui();
 };

@@ -36,7 +36,7 @@ void Capturer::getFrame() {
     std::cout << "- getFrame called" << std::endl;
     for(auto device : this->captureDevices) {
         if(this->autoCalibrate) {
-            device->setCalibrationEnabled(true);
+            device->getCalibrator()->setEnabled(true);
         }
         device->getDepthCamera()->requestFrame();
     }
@@ -55,7 +55,7 @@ void Capturer::getFrame() {
             this->autoCalibrate = false;
 
             for(auto device : this->captureDevices) {
-                device->setCalibrationEnabled(false);
+                device->getCalibrator()->setEnabled(false);
             }
         }
     }

@@ -110,13 +110,26 @@ void RealsenseDepthCamera::processFrame() {
         this->running = false;
         return;
     }
+    if(this->cameraCalibrator) {
+        std::cout << "Should calibrate" << std::endl;
+    }
 
     if(this->cameraCalibrator && this->cameraCalibrator->isEnabled()) {
+        std::cout << "Will calibrate" << std::endl;
         // Align the color frame to the depth frame so OpenCV gets correct data
         rs2::align align_to_depth(RS2_STREAM_DEPTH);
         rs2::frameset alignedFrameset = align_to_depth.process(this->lastFrame);
         rs2::video_frame colorFrame = alignedFrameset.get_color_frame();
-        this->cameraCalibrator->tryClaibrateCameraPosition(colorFrame.get_width(), colorFrame.get_height(), (void*)colorFrame.get_data());
+
+        rs2_intrinsics intrinsics = this->lastFrame.get_profile().as<rs2::video_stream_profile>().get_intrinsics();
+        glm::mat3 cameraMatrix(
+            glm::vec3(intrinsics.fx, 0.0f, intrinsics.ppx), 
+            glm::vec3(0.0f, intrinsics.fy, intrinsics.ppy), 
+            glm::vec3(0.0f, 0.0f, 1.0f)
+        );
+
+        this->cameraCalibrator->tryCalibrateCameraPosition(this->calibratedTransform, cameraMatrix, intrinsics.coeffs, colorFrame.get_width(), colorFrame.get_height(), (void*)colorFrame.get_data());
+        std::cout << "Calibrated" << std::endl;
     }
     std::cout << this->getSerial() << " processed a frame" << std::endl;
     auto processing_end = std::chrono::system_clock::now();

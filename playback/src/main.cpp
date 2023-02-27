@@ -1,4 +1,5 @@
 #include <iostream>
+#include <filesystem>
 #include <chrono>
 
 #include <SDL.h>
@@ -13,7 +14,8 @@
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_opengl3.h"
 
-#include "octreeLoad.h"
+#include <octree/octreeLoad.h>
+
 #include "octreeMeshRenderer.h"
 #include "octreeWireframeRenderer.h"
 #include "cudaRenderer/cudaRenderer.h"
@@ -32,9 +34,26 @@ MessageCallback( GLenum source,
             type, severity, message );
 }
 
+void print_usage() {
+    std::cout << "playback" << std::endl;
+    std::cout << "Usage:" << std::endl;
+    std::cout << "\tplayback [filename]" << std::endl;
+}
+
 int main(int argc, char** argv) {
     int WIDTH = 800;
     int HEIGHT = 600;
+
+    if(argc != 2) {
+        print_usage();
+        return 1;
+    }
+
+    std::filesystem::path octreePath(argv[1]);
+    if(!std::filesystem::exists(octreePath)) {
+        std::cout << "Unable to load file " << octreePath.string() << std::endl;
+        return 1;
+    }
 
     // SDL setup
     if(SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -108,7 +127,7 @@ int main(int argc, char** argv) {
 
     ImGuiIO& imguiIo = ImGui::GetIO();
 
-    Octree<glm::vec3>* octree = loadOctree("octree.oct");
+    Octree<glm::vec3>* octree = loadOctree(octreePath.string());
 
     int renderMode = 3;
 

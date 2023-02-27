@@ -103,6 +103,7 @@ void OctreeGenerator::boxSort(Octree<std::vector<Point>>* node, int level, int m
         }
     }
 }
+// Returns average color
 glm::vec3 OctreeGenerator::serialize(Octree<std::vector<Point>>* node, std::ofstream &treefile, int* writeHead, int* nodeLocation) {
     // Different count from what the octree reports, as we ignore empty children
     unsigned char childCount = 0;

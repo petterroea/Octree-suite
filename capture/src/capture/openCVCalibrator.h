@@ -26,7 +26,8 @@ class OpenCVCalibrator : public CameraCalibrator {
     // Signal from GUI thread
     bool saveState = false; // not thread safe
 public:
-    bool tryCalibrateCameraPosition(glm::mat4& transform, rs2::video_frame& frame);
+    OpenCVCalibrator();
+    bool tryCalibrateCameraPosition(glm::mat4& transform, glm::mat3x3 cameraMatrixGlm, float* distCoeffs, int w, int h, void* data);
 
     void drawImmediateGui();
     int getLastDetectedMarkers() { return this->lastDetectedMarkers; }

@@ -1,6 +1,8 @@
 #include "capture.h"
 
 #include <rapidjson/document.h>
+#include <rapidjson/ostreamwrapper.h>
+#include <rapidjson/prettywriter.h>
 
 #include <json_helpers.h>
 
@@ -8,10 +10,11 @@
 #include <asyncPointcloudWriter.h>
 
 #include <iostream>
+#include <fstream>
 #include <filesystem>
 #include <chrono>
 
-Capture::Capture(rapidjson::Document& document, std::filesystem::path workdir) {
+Capture::Capture(rapidjson::Document& document, std::filesystem::path& workdir) {
     // Load the capture transform(Transform from world space to 1, -1 unit cube)
     assert(document.IsObject());
     assert(document.HasMember("capture_transform"));
@@ -55,14 +58,13 @@ Capture::~Capture() {
         delete camera;
     }
 }
-
-void Capture::to_ply(std::string outputDirectory) {
+void Capture::to_ply(std::filesystem::path outputDir) {
     std::cout << "Starting conversion to PLY frames" << std::endl;
     for(auto camera : this->cameras) {
         camera->beginStreaming();
     }
 
-    auto pointcloudWriter = new AsyncPointcloudWriter(outputDirectory, 1920*1080*this->cameras.size());
+    auto pointcloudWriter = new AsyncPointcloudWriter(outputDir, 1920*1080*this->cameras.size());
     // Loop
     int framecount = 0;
     auto processing_start = std::chrono::system_clock::now();
@@ -115,10 +117,62 @@ void Capture::to_ply(std::string outputDirectory) {
 
     auto processing_end = std::chrono::system_clock::now();
     // Cleanup
-    float elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(processing_end- processing_start).count();
-    float fps = static_cast<float>(framecount) / elapsed_time;
+    float elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(processing_end- processing_start).count();
+    float fps = static_cast<float>(framecount) / elapsedTime;
+
+    this->writeMetadata(framecount, elapsedTime, outputDir);
 
     delete pointcloudWriter;
 
-    std::cout << "Processed " << framecount << " frames in " << elapsed_time << " seconds (" << fps << " fps)" << std::endl;
+    std::cout << "Processed " << framecount << " frames in " << elapsedTime << " seconds (" << fps << " fps)" << std::endl;
+}
+
+void Capture::writeMetadata(int framecount, float elapsedTime, std::filesystem::path& workdir) {
+    std::filesystem::path filename("metadata.json");
+    std::filesystem::path fullPath = workdir / filename;
+
+    rapidjson::Document d;
+    d.SetObject();
+    rapidjson::Document::AllocatorType& allocator = d.GetAllocator();
+
+    {
+        rapidjson::Value version;
+        version.SetString("1");
+
+        rapidjson::Value key;
+        key.SetString("version");
+        d.AddMember(key, version, allocator);
+    }
+
+    {
+        rapidjson::Value frames;
+        frames.SetInt(framecount);
+
+        rapidjson::Value key;
+        key.SetString("framecount");
+        d.AddMember(key, frames, allocator);
+    }
+    {
+        rapidjson::Value time;
+        time.SetFloat(elapsedTime);
+
+        rapidjson::Value key;
+        key.SetString("elapsedTime");
+        d.AddMember(key, time, allocator);
+    }
+    // Video frames per second
+    {
+        rapidjson::Value fps;
+        fps.SetFloat(30.0f);
+
+        rapidjson::Value key;
+        key.SetString("fps");
+        d.AddMember(key, fps, allocator);
+    }
+
+    std::ofstream out(fullPath.string());
+    rapidjson::OStreamWrapper osw(out);
+
+    rapidjson::PrettyWriter<rapidjson::OStreamWrapper> writer(osw);
+    d.Accept(writer);
 }

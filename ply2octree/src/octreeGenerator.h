@@ -1,4 +1,4 @@
-#include <octree.h>
+#include <octree/octree.h>
 #include <glm/vec3.hpp>
 
 #include <vector>

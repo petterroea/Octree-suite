@@ -4,6 +4,7 @@
 #include <opencv2/calib3d.hpp>
 
 #include <imgui.h>
+#include <iostream>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
@@ -18,34 +19,35 @@ glm::vec3 sensorOffset(0.0f, 0.0f, 0.0f);
 cv::Ptr<cv::aruco::Dictionary> openCVCalibrationDictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
 cv::Ptr<cv::aruco::GridBoard> openCVCalibrationBoard = cv::aruco::GridBoard::create(6, 8, 4.0f/100.0f, 0.95/100.0f, openCVCalibrationDictionary);
 
-bool OpenCVCalibrator::tryCalibrateCameraPosition(glm::mat4& transform, rs2::video_frame& frame) {
+bool OpenCVCalibrator::tryCalibrateCameraPosition(glm::mat4& transform, glm::mat3x3 cameraMatrixGlm, float* distCoeffs , int w, int h, void* data) {
+    std::cout << "CALIBRATING" << std::endl;
     bool success = false;
-    cv::Mat image = cv::Mat(frame.get_width()*frame.get_height(), 1, CV_8UC3, (void*)frame.get_data()).clone().reshape(0, frame.get_height());
+    cv::Mat image = cv::Mat(w*h, 1, CV_8UC3, data).clone().reshape(0, h);
     std::vector<int> ids;
     std::vector<std::vector<cv::Point2f> > corners;
     cv::aruco::detectMarkers(image, openCVCalibrationDictionary, corners, ids);
     this->lastDetectedMarkers = ids.size();
 
     //Get camera intrinsics
-    rs2_intrinsics intrinsics = frame.get_profile().as<rs2::video_stream_profile>().get_intrinsics();
     if(ids.size() > 0) {
         cv::Mat cameraMatrix = (cv::Mat_<float>(3,3) << 
-        intrinsics.fx, 0.0f, intrinsics.ppx, 
-        0.0f, intrinsics.fy, intrinsics.ppy,
-        0.0f, 0.0f, 1.0f);
-        cv::Mat distCoeffs = (cv::Mat_<float>(5,1) << 
-            intrinsics.coeffs[0],
-            intrinsics.coeffs[1],
-            intrinsics.coeffs[2],
-            intrinsics.coeffs[3],
-            intrinsics.coeffs[4]
+            cameraMatrixGlm[0][0], cameraMatrixGlm[0][1], cameraMatrixGlm[0][2],
+            cameraMatrixGlm[1][0], cameraMatrixGlm[1][1], cameraMatrixGlm[1][2],
+            cameraMatrixGlm[2][0], cameraMatrixGlm[2][1], cameraMatrixGlm[2][2]
+        );
+        cv::Mat distCoeffs_cv = (cv::Mat_<float>(5,1) << 
+            distCoeffs[0],
+            distCoeffs[1],
+            distCoeffs[2],
+            distCoeffs[3],
+            distCoeffs[4]
         );
         cv::Vec3d rvec;
-        int valid = cv::aruco::estimatePoseBoard(corners, ids, openCVCalibrationBoard, cameraMatrix, distCoeffs, rvec, tvec);
+        int valid = cv::aruco::estimatePoseBoard(corners, ids, openCVCalibrationBoard, cameraMatrix, distCoeffs_cv, rvec, tvec);
         this->isValidPose = valid > 0;
 
         if(valid > 0)
-            cv::drawFrameAxes(image, cameraMatrix, distCoeffs, rvec, tvec, 0.1);
+            cv::drawFrameAxes(image, cameraMatrix, distCoeffs_cv, rvec, tvec, 0.1);
 
         if(valid > 0) {
             float x = rvec[0];
@@ -95,4 +97,8 @@ void OpenCVCalibrator::drawImmediateGui() {
     if(ImGui::Button("Save me some state, please")) {
         this->saveState = true;
     }
+}
+
+OpenCVCalibrator::OpenCVCalibrator() {
+
 }

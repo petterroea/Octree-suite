@@ -18,14 +18,6 @@ OpenCVCalibrator* CaptureDevice::getCalibrator() {
     return this->calibrator;
 }
 
-bool CaptureDevice::isCalibrationEnabled() {
-    return this->calibrationEnabled;
-}
-
-void CaptureDevice::setCalibrationEnabled(bool newState) {
-    this->calibrationEnabled = newState;
-}
-
 void CaptureDevice::drawImmediateGui() {
     ImGui::Checkbox("Enable OpenCV", &this->calibrationEnabled);
     this->calibrator->drawImmediateGui();

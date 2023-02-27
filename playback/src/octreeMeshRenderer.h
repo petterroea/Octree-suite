@@ -2,7 +2,7 @@
 #include <GL/glew.h>
 #include <glm/mat4x4.hpp>
 
-#include <octree.h>
+#include <octree/octree.h>
 #include "shaders/meshShader.h"
 
 class OctreeMeshRenderer {

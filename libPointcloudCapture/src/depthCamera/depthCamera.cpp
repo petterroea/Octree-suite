@@ -20,6 +20,9 @@
 //#include "../render/shaders/pointcloudShader.h"
 
 DepthCamera::DepthCamera(CameraCalibrator* calibrator, RenderMode renderMode, VideoMode videoMode) : cameraCalibrator(calibrator), calibratedTransform(1.0f), renderMode(renderMode), videoMode(videoMode), gpuTransformer(videoMode){
+    if(calibrator) {
+        std::cout << "depth camera has calibrator" << std::endl;
+    }
     if(renderMode == RenderMode::HEADLESS) {
 #ifdef HEADLESS_RELEASE
         this->setupGpuMemoryHeadless(videoMode);
