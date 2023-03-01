@@ -5,7 +5,7 @@
 #include <GL/glew.h>
 #include <cuda_runtime.h>
 
-#include <octree/octree.h>
+#include <octree/pointerOctree.h>
 #include "gpuOctree.h"
 
 #include "../shaders/cudaBlitShader.h"
@@ -47,9 +47,9 @@ class CudaRenderer {
     // Convert octree structure to something GPU-friendly
     void* octreeGpuDataPtr;
     int rootNodeOffset = 0;
-    void generateGpuOctree(Octree<glm::vec3>* octree);
+    void generateGpuOctree(PointerOctree<glm::vec3>* octree);
 public:
-    CudaRenderer(Octree<glm::vec3>* octree);
+    CudaRenderer(PointerOctree<glm::vec3>* octree);
     ~CudaRenderer();
 
     void updateTexture(int width, int height);

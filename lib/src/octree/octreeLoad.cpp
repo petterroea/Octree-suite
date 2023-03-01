@@ -3,7 +3,7 @@
 #include <iostream>
 #include <fstream>
 
-Octree<glm::vec3>* getChild(char* data, unsigned int offset) {
+PointerOctree<glm::vec3>* getChild(char* data, unsigned int offset) {
     int offsets[8];
 
     char childCount = data[offset];
@@ -18,7 +18,7 @@ Octree<glm::vec3>* getChild(char* data, unsigned int offset) {
     );
     int* offsetArrayPtr = (int*)(&data[offset+5]);
 
-    auto octree = new Octree<glm::vec3>(color);
+    auto octree = new PointerOctree<glm::vec3>(color);
 
     int offsetCount = 0;
     for(int i = 7; i >= 0; i--) {
@@ -31,7 +31,7 @@ Octree<glm::vec3>* getChild(char* data, unsigned int offset) {
     return octree;
 }
 
-Octree<glm::vec3>* loadOctree(std::string filename) {
+PointerOctree<glm::vec3>* loadOctree(std::string filename) {
     std::ifstream reader(filename, std::ios::binary);
 
     unsigned int magic;
@@ -59,6 +59,6 @@ Octree<glm::vec3>* loadOctree(std::string filename) {
     reader.seekg(9);
     reader.read(fileBuffer, fileSize);
 
-    Octree<glm::vec3>* root = getChild(fileBuffer, rootOffset);
+    PointerOctree<glm::vec3>* root = getChild(fileBuffer, rootOffset);
     return root;
 }

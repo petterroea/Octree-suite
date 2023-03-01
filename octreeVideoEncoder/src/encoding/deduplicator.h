@@ -5,6 +5,7 @@
 #include <mutex>
 
 #include "octreeHashmap.h"
+#include "../layeredOctree/layeredOctreeContainer.h"
 
 struct DeDuplicationJob {
     int jobId;
@@ -17,7 +18,10 @@ class DeDuplicator {
 
     std::mutex jobMutex;
     std::vector<DeDuplicationJob*> jobs;
+
+    int layer;
     OctreeHashmap& hashmap;
+    LayeredOctreeContainer<glm::vec3>& container;
 
     static void worker(DeDuplicator* me);
     std::vector<DeDuplicationJob*>::iterator currentJobIterator;
@@ -26,7 +30,7 @@ class DeDuplicator {
     // DeDuplication implementation
     void kMeans(int key, int k, int steps);
 public:
-    DeDuplicator(OctreeHashmap& hashmap, int nThreads);
+    DeDuplicator(OctreeHashmap& hashmap, LayeredOctreeContainer<glm::vec3>& container, int layer, int nThreads);
     ~DeDuplicator();
 
     void run();

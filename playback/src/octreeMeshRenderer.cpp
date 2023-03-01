@@ -7,7 +7,7 @@
 #include <glm/vec3.hpp>
 
 
-void OctreeMeshRenderer::pushOctreeCube(Octree<glm::vec3>* octree, std::vector<glm::vec3>& points, std::vector<glm::vec3>& colors, int level, int maxLevels, glm::vec3 offset) {
+void OctreeMeshRenderer::pushOctreeCube(PointerOctree<glm::vec3>* octree, std::vector<glm::vec3>& points, std::vector<glm::vec3>& colors, int level, int maxLevels, glm::vec3 offset) {
     float scale = pow(0.5f, static_cast<float>(level));
     // Are we a leaf node or have we reached max LOD?
     if(octree->getChildCount() == 0 || level == maxLevels) {
@@ -84,7 +84,7 @@ void OctreeMeshRenderer::pushOctreeCube(Octree<glm::vec3>* octree, std::vector<g
     }
 }
 
-OctreeMeshRenderer::OctreeMeshRenderer(Octree<glm::vec3>* octree) {
+OctreeMeshRenderer::OctreeMeshRenderer(PointerOctree<glm::vec3>* octree) {
     // Generate mesh
     std::vector<glm::vec3> points;
     std::vector<glm::vec3> colors;

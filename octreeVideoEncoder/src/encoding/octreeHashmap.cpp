@@ -17,11 +17,11 @@ OctreeHashmap::~OctreeHashmap() {
     }
 }
 
-void OctreeHashmap::push(int key, octree_type element) {
+void OctreeHashmap::push(int key, int element_idx) {
     if(!this->elements[key]) {
-        this->elements[key] = new std::vector<octree_type>();
+        this->elements[key] = new std::vector<int>();
     }
-    this->elements[key]->push_back(element);
+    this->elements[key]->push_back(element_idx);
 }
 
 hashmap_element* OctreeHashmap::get_vector(int key) const {

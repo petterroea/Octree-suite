@@ -12,7 +12,7 @@
 
 #include "kernels/octreeRenderer.h"
 
-CudaRenderer::CudaRenderer(Octree<glm::vec3>* octree) {
+CudaRenderer::CudaRenderer(PointerOctree<glm::vec3>* octree) {
     // Generate mesh
     glm::vec3 vertices[] = {
         glm::vec3(-1.0f, -1.0f, 0.0f),
@@ -246,10 +246,10 @@ void CudaRenderer::render(glm::mat4 view, glm::mat4 projection) {
     glUseProgram(0);
 }
 
-int generateOctreeInternal(Octree<glm::vec3>* octree, std::vector<GpuOctree>& nodes) {
+int generateOctreeInternal(PointerOctree<glm::vec3>* octree, std::vector<GpuOctree>& nodes) {
     GpuOctree gpuOctree(*octree->getPayload());
     for(int i = 0; i < 8; i++) {
-        Octree<glm::vec3>* child = octree->getChildByIdx(i);
+        PointerOctree<glm::vec3>* child = octree->getChildByIdx(i);
         if(child != nullptr) {
             gpuOctree.children[i] = generateOctreeInternal(child, nodes);
         } else {
@@ -261,7 +261,7 @@ int generateOctreeInternal(Octree<glm::vec3>* octree, std::vector<GpuOctree>& no
     return nodes.size()-1;
 }
 
-void CudaRenderer::generateGpuOctree(Octree<glm::vec3>* octree) {
+void CudaRenderer::generateGpuOctree(PointerOctree<glm::vec3>* octree) {
     std::vector<GpuOctree> nodes;
 
     generateOctreeInternal(octree, nodes);

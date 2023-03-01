@@ -3,8 +3,8 @@
 #include <iostream>
 
 
-Octree<std::vector<Point>>* OctreeGenerator::boxSortOuter(int maxLevel) {
-    auto octree = new Octree<std::vector<Point>>(std::vector<Point>());
+PointerOctree<std::vector<Point>>* OctreeGenerator::boxSortOuter(int maxLevel) {
+    auto octree = new PointerOctree<std::vector<Point>>(std::vector<Point>());
 
     for(int entry = 0; entry < this->currentPointcloud->getPointCount(); entry++) {
         const glm::vec3 vertex = this->currentPointcloud->getVertices()[entry];
@@ -17,7 +17,7 @@ Octree<std::vector<Point>>* OctreeGenerator::boxSortOuter(int maxLevel) {
 #ifdef OCTREE_LOG
             std::cout << std::string(level*2, ' ') << "new child " << childIdx << " level " << level << " with max " << childPayload.max << std::endl;
 #endif
-            auto newChild = new Octree<std::vector<Point>>(childPayload);
+            auto newChild = new PointerOctree<std::vector<Point>>(childPayload);
 
             octree->setChild(newChild, childIdx);
         }
@@ -46,7 +46,7 @@ Octree<std::vector<Point>>* OctreeGenerator::boxSortOuter(int maxLevel) {
 }
 
 int FILL_DEPTH=7;
-void OctreeGenerator::boxSort(Octree<std::vector<Point>>* node, int level, int maxLevel) {
+void OctreeGenerator::boxSort(PointerOctree<std::vector<Point>>* node, int level, int maxLevel) {
     if(level == maxLevel) {
 //#ifdef OCTREE_LOG
         std::cout << std::string(level*2, ' ') << "Hit max tree level, there are " << node->getPayload()->size() << " entries" << std::endl;
@@ -72,7 +72,7 @@ void OctreeGenerator::boxSort(Octree<std::vector<Point>>* node, int level, int m
             std::cout << std::string(level*2, ' ') << "new child " << childIdx << " level " << level << " with max " << childPayload.max << std::endl;
 #endif
 
-            auto newChild = new Octree<std::vector<Point>>(childPayload);
+            auto newChild = new PointerOctree<std::vector<Point>>(childPayload);
 
             node->setChild(newChild, childIdx);
         }
@@ -104,7 +104,7 @@ void OctreeGenerator::boxSort(Octree<std::vector<Point>>* node, int level, int m
     }
 }
 // Returns average color
-glm::vec3 OctreeGenerator::serialize(Octree<std::vector<Point>>* node, std::ofstream &treefile, int* writeHead, int* nodeLocation) {
+glm::vec3 OctreeGenerator::serialize(PointerOctree<std::vector<Point>>* node, std::ofstream &treefile, int* writeHead, int* nodeLocation) {
     // Different count from what the octree reports, as we ignore empty children
     unsigned char childCount = 0;
     unsigned char childFlags = 0;
@@ -156,7 +156,7 @@ glm::vec3 OctreeGenerator::serialize(Octree<std::vector<Point>>* node, std::ofst
 }
 
 
-void OctreeGenerator::writeToFile(Octree<std::vector<Point>>* octree, char* filename) {
+void OctreeGenerator::writeToFile(PointerOctree<std::vector<Point>>* octree, char* filename) {
     std::ofstream treeFile;
     treeFile.open(filename, std::ios::binary);
 

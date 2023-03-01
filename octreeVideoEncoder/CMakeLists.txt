@@ -1,5 +1,8 @@
 set(CAPTURE_TO_PLY_BINARY_NAME "octreeVideoEncoder")
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+
 enable_language(CUDA)
 
 find_package(CUDA REQUIRED)

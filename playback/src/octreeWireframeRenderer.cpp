@@ -7,7 +7,7 @@
 #include <glm/vec3.hpp>
 
 
-void OctreeWireframeRenderer::pushOctreeCube(Octree<glm::vec3>* octree, std::vector<glm::vec3>& points, std::vector<glm::vec3>& colors, int level, int maxLevels, glm::vec3 offset) {
+void OctreeWireframeRenderer::pushOctreeCube(PointerOctree<glm::vec3>* octree, std::vector<glm::vec3>& points, std::vector<glm::vec3>& colors, int level, int maxLevels, glm::vec3 offset) {
     float scale = pow(0.5f, static_cast<float>(level));
     // Always draw wireframes
 
@@ -72,7 +72,7 @@ void OctreeWireframeRenderer::pushOctreeCube(Octree<glm::vec3>* octree, std::vec
     }
 }
 
-OctreeWireframeRenderer::OctreeWireframeRenderer(Octree<glm::vec3>* octree) {
+OctreeWireframeRenderer::OctreeWireframeRenderer(PointerOctree<glm::vec3>* octree) {
     // Generate mesh
     std::vector<glm::vec3> points;
     std::vector<glm::vec3> colors;

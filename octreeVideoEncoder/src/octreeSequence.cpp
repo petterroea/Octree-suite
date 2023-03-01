@@ -32,7 +32,7 @@ OctreeSequence::~OctreeSequence() {
 
 }
 
-Octree<glm::vec3>* OctreeSequence::getOctree(int frame) {
+PointerOctree<glm::vec3>* OctreeSequence::getOctree(int frame) {
     if(frame > this->frameCount || frame < 0) {
         throw std::invalid_argument("Invalid frame number");
     }

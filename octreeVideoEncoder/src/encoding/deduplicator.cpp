@@ -6,7 +6,7 @@
 
 #include <octree/octree.h>
 
-DeDuplicator::DeDuplicator(OctreeHashmap& hashmap, int nThreads) : hashmap(hashmap), nThreads(nThreads) {
+DeDuplicator::DeDuplicator(OctreeHashmap& hashmap, LayeredOctreeContainer<glm::vec3>& container, int layer, int nThreads) : hashmap(hashmap), container(container), nThreads(nThreads), layer(layer) {
     for(int i = 0; i < 256; i++) {
         auto job = new DeDuplicationJob;
 
@@ -83,7 +83,7 @@ DeDuplicationJob* DeDuplicator::getNextJob() {
 }
 
 void DeDuplicator::kMeans(int key, int k, int steps) {
-    std::vector<Octree<glm::vec3>*>& population = *this->hashmap.get_vector(key);
+    std::vector<layer_ptr_type>& population = *this->hashmap.get_vector(key);
     //std::cout << "Kmeans k=" << k << " pop " << population.size() << std::endl;
 
     int* centers = new int[k];
@@ -114,9 +114,9 @@ void DeDuplicator::kMeans(int key, int k, int steps) {
             std::cout << "X: " << x << std::endl;
         }
         for(int y = 0; y < populationSize; y++) {
-            auto a = population[x];
-            auto b = population[y];
-            float nearness = octreeSimilarity(a, b);
+            //auto a = this->container.getNode(this->layer, population[x]);
+            //auto b = this->container.getNode(this->layer, population[y]);
+            float nearness = layeredOctreeSimilarity(population[x], population[y], this->layer, this->container);
             nearnessTable[x + y*populationSize] = nearness;
         }
     }

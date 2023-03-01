@@ -6,30 +6,33 @@
 */
 #pragma once
 
-#include <octree/octree.h>
-#include "layeredOctreeNode.h"
+#include <iostream>
+#include <vector>
 
-#define OCTREE_MAX_DEPTH OCTREE_MAX_DEPTH
+#include <octree/pointerOctree.h>
+#include "layeredOctree.h"
+
+#define OCTREE_MAX_DEPTH 20
 
 template <typename T>
-class ChunkedOctreeContainer {
+class LayeredOctreeContainer {
     int chunkEndLevel;
-    std::vector<ChunkedOctree<T>>* chunks;
+    std::vector<LayeredOctree<T>>* chunks;
 
-    int installNode(Octree<T>* node, int level, int maxLevel);
+    int installNode(PointerOctree<T>* node, int level, int maxLevel);
 public:
-    ChunkedOctreeContainer(Octree<T>* originalOctree);
-    ~ChunkedOctreeContainer();
+    LayeredOctreeContainer(PointerOctree<T>* originalOctree);
+    ~LayeredOctreeContainer();
 
-    int addOctree(Octree<T>* node);
+    int addOctree(PointerOctree<T>* node);
 
-    ChunkedOctree<T>* getNode(int layer, int idx);
+    LayeredOctree<T>* getNode(int layer, int idx);
 
     int getChunkEndLevel();
 };
 
 template <typename T>
-ChunkedOctreeContainer<T>::ChunkedOctreeContainer(Octree<T>* originalOctree) {
+LayeredOctreeContainer<T>::LayeredOctreeContainer(PointerOctree<T>* originalOctree) {
     int stats[OCTREE_MAX_DEPTH] {
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     };
@@ -46,7 +49,7 @@ ChunkedOctreeContainer<T>::ChunkedOctreeContainer(Octree<T>* originalOctree) {
     std::cout << "Tree depth: " << depth << std::endl;
     depth = depth + 2; // Some margin of error :)
 
-    this->chunks = new std::vector<ChunkedOctree<T>>[depth];
+    this->chunks = new std::vector<LayeredOctree<T>>[depth];
 
     // Calculate information used to decide where to make chunks
     for(int i = 0; i < OCTREE_MAX_DEPTH; i++) {
@@ -57,23 +60,23 @@ ChunkedOctreeContainer<T>::ChunkedOctreeContainer(Octree<T>* originalOctree) {
 }
 
 template <typename T>
-int ChunkedOctreeContainer<T>::addOctree(Octree<T>* octree) {
+int LayeredOctreeContainer<T>::addOctree(PointerOctree<T>* octree) {
     return this->installNode(octree, 0, OCTREE_MAX_DEPTH);
 }
 
 // Returns the array index the node was installed at
 template <typename T>
-int ChunkedOctreeContainer<T>::installNode(Octree<T>* node, int level, int maxLevel) {
+int LayeredOctreeContainer<T>::installNode(PointerOctree<T>* node, int level, int maxLevel) {
     if(level == maxLevel) {
         std::cout << "WARNING: Unable to install entire octree due to the tree being too deep" << std::endl;
         throw "";
     }
-    auto chunked = ChunkedOctree<T>(*node->getPayload(), level);
+    auto chunked = LayeredOctree<T>(*node->getPayload(), level);
     for(int i = 0; i < 8; i++) {
         auto child = node->getChildByIdx(i);
         if(child) {
             int childIndex = this->installNode(child, level+1, maxLevel);
-            chunked.setChild(childIndex, i);
+            chunked.setChild(childIndex, i, child->getChildCount() == 0);
         }
     }
     this->chunks[level].push_back(chunked);
@@ -81,11 +84,17 @@ int ChunkedOctreeContainer<T>::installNode(Octree<T>* node, int level, int maxLe
 }
 
 template <typename T>
-ChunkedOctree<T>* ChunkedOctreeContainer<T>::getNode(int layer, int idx) {
+LayeredOctree<T>* LayeredOctreeContainer<T>::getNode(int layer, int idx) {
     return &this->chunks[layer][idx];
 }
 
 template <typename T>
-ChunkedOctreeContainer<T>::~ChunkedOctreeContainer() {
+LayeredOctreeContainer<T>::~LayeredOctreeContainer() {
 
 }
+
+// Helper functions
+
+float diffLayeredOctreeColor(layer_ptr_type lhs, layer_ptr_type rhs, int layer, LayeredOctreeContainer<glm::vec3>& container);
+float layeredOctreeSimilarity(layer_ptr_type lhs, layer_ptr_type rhs, int layer, LayeredOctreeContainer<glm::vec3>& container);
+float layeredOctreeFillRate(layer_ptr_type tree, int layer, LayeredOctreeContainer<glm::vec3>& container);

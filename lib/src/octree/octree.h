@@ -5,9 +5,10 @@
 
 #define ADDRESS_OCTREE(x, y, z) (x & 1) | ((y & 1) << 1) | ((z & 1) << 2)
 
-template <typename T>
+template <typename T, typename C>
 class Octree {
-    Octree<T>* children[8] {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
+protected:
+    C children[8];
     T payload;
     uint8_t childCount = 0;
     // Is there a cild at this position?
@@ -16,12 +17,11 @@ class Octree {
     uint8_t leafFlags = 0;
 public:
     Octree(T payload);
-    ~Octree();
 
-    Octree<T>* getChildByCoords(int x, int y, int z) const {
+    C getChildByCoords(int x, int y, int z) const {
         return this->getChildByIdx(ADDRESS_OCTREE(x, y, z));
     }
-    Octree<T>* getChildByIdx(int idx) const {
+    C getChildByIdx(int idx) const {
         return this->children[idx];
     }
 
@@ -29,21 +29,6 @@ public:
 
     T* getPayload() {
         return &this->payload;
-    }
-    bool setChild(Octree<T>* child, int idx) {
-        bool removed_existing = false;
-        if(this->children[idx] != nullptr) {
-            delete this->children[idx];
-            removed_existing = true;
-        } else {
-            this->childCount++;
-        }
-        this->children[idx] = child;
-        this->childFlags |= 1 << idx;
-        if(!child->childCount) {
-            this->leafFlags |= 1 << idx;
-        }
-        return removed_existing;
     }
     uint8_t getChildCount() const {
         return this->childCount;
@@ -56,26 +41,24 @@ public:
     }
 };
 
-template <typename T>
-Octree<T>::Octree(T payload) {
+template <typename T, typename C>
+Octree<T, C>::Octree(T payload) {
     this->payload = payload;
 }
 
-template <typename T>
-Octree<T>::~Octree() {
+/*
+template <typename T, typename C>
+Octree<T, C>::~Octree() {
     for(int i = 0; i < 8; i++) {
         if(children[i] != nullptr) {
             delete children[i];
         }
     }
 }
+*/
 
-float diffOctreeColor(Octree<glm::vec3>* lhs, Octree<glm::vec3>* rhs);
-float octreeSimilarity(const Octree<glm::vec3>* lhs, const Octree<glm::vec3>* rhs);
-float octreeFillRate(const Octree<glm::vec3>* tree);
-
-template <typename T>
-void getOctreeStats(const Octree<T>* tree, int* statsArray, int maxdepth, int curdepth) {
+template <typename T, typename C>
+void getOctreeStats(const C tree, int* statsArray, int maxdepth, int curdepth) {
     if(curdepth == maxdepth) {
         return;
     }
@@ -88,12 +71,7 @@ void getOctreeStats(const Octree<T>* tree, int* statsArray, int maxdepth, int cu
     }
 }
 
-template <typename T>
-int Octree<T>::getHashKey() {
+template <typename T, typename C>
+int Octree<T, C>::getHashKey() {
     return this->childFlags;
-    int key = 0;
-    for(int i = 0; i < 8; i++) {
-        key |= (this->getChildByIdx(i) != nullptr ? 1 : 0) << i;
-    }
-    return key;
 }

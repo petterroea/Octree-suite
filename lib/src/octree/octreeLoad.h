@@ -1,6 +1,6 @@
 #include <string>
 #include <glm/vec3.hpp>
 
-#include "octree.h"
+#include "pointerOctree.h"
 
-Octree<glm::vec3>* loadOctree(std::string filename);
+PointerOctree<glm::vec3>* loadOctree(std::string filename);

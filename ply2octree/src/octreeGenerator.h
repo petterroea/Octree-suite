@@ -1,4 +1,4 @@
-#include <octree/octree.h>
+#include <octree/pointerOctree.h>
 #include <glm/vec3.hpp>
 
 #include <vector>
@@ -18,12 +18,12 @@ struct Point {
 class OctreeGenerator {
     Pointcloud* currentPointcloud;
 
-    void boxSort(Octree<std::vector<Point>>* node, int level, int maxLevel);
-    glm::vec3 serialize(Octree<std::vector<Point>>* node, std::ofstream &treefile, int* writeHead, int* nodeLocation);
+    void boxSort(PointerOctree<std::vector<Point>>* node, int level, int maxLevel);
+    glm::vec3 serialize(PointerOctree<std::vector<Point>>* node, std::ofstream &treefile, int* writeHead, int* nodeLocation);
 public:
     OctreeGenerator(Pointcloud* currentPointcloud);
 
-    Octree<std::vector<Point>>* boxSortOuter(int maxLevel);
+    PointerOctree<std::vector<Point>>* boxSortOuter(int maxLevel);
 
-    void writeToFile(Octree<std::vector<Point>>* octree, char* filename);
+    void writeToFile(PointerOctree<std::vector<Point>>* octree, char* filename);
 };

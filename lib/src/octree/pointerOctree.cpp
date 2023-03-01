@@ -1,16 +1,16 @@
-#include "octree.h"
+#include "pointerOctree.h"
 
 #include <bit>
 
 #include <glm/geometric.hpp>
 
-float diffOctreeColor(Octree<glm::vec3>* lhs, Octree<glm::vec3>* rhs) {
+float diffPointerOctreeColor(PointerOctree<glm::vec3>* lhs, PointerOctree<glm::vec3>* rhs) {
     // Use euclidean distance. TODO: Delta E
     return glm::length(*rhs->getPayload() - *lhs->getPayload());
 }
 
 // **Structural** octree similarity
-float octreeSimilarity(const Octree<glm::vec3>* lhs, const Octree<glm::vec3>* rhs) {
+float pointerOctreeSimilarity(PointerOctree<glm::vec3>* lhs, PointerOctree<glm::vec3>* rhs) {
     int lhs_children = lhs->getChildCount();
     int rhs_children = rhs->getChildCount();
 
@@ -18,9 +18,9 @@ float octreeSimilarity(const Octree<glm::vec3>* lhs, const Octree<glm::vec3>* rh
         // Both leaf nodes? 100% similar
         return 1.0f;
     } else if(lhs_children && !rhs_children) {
-        return octreeFillRate(lhs);
+        return pointerOctreeFillRate(lhs);
     } else if(!lhs_children && rhs_children) {
-        return octreeFillRate(rhs);
+        return pointerOctreeFillRate(rhs);
     }
     // Both nodes are populated - calculate similarity
     float sum = 0.0f;
@@ -30,17 +30,17 @@ float octreeSimilarity(const Octree<glm::vec3>* lhs, const Octree<glm::vec3>* rh
         if(lhs_child == nullptr && rhs_child == nullptr) {
             sum += 1.0f;
         } else if(lhs_child != nullptr && rhs_child != nullptr) {
-            sum += octreeSimilarity(lhs_child, rhs_child);
+            sum += pointerOctreeSimilarity(lhs_child, rhs_child);
         } else if(lhs_child != nullptr && rhs_child == nullptr) {
-            sum += 1.0f - octreeFillRate(lhs_child);
+            sum += 1.0f - pointerOctreeFillRate(lhs_child);
         } else { //lhs_child == nullptr && rhs_child != nullptr
-            sum += 1.0f - octreeFillRate(rhs_child);
+            sum += 1.0f - pointerOctreeFillRate(rhs_child);
         }
     }
     return sum / 8.0f;
 }
 
-float octreeFillRate(const Octree<glm::vec3>* tree) {
+float pointerOctreeFillRate(PointerOctree<glm::vec3>* tree) {
     if(!tree->getChildCount()) {
         return 1.0f;
     }
@@ -63,7 +63,7 @@ float octreeFillRate(const Octree<glm::vec3>* tree) {
     #pragma GCC unroll 8
     for(int i = 0; i < 8; i++) {
         if(((childFlags ^ leafFlags) >> i) & 1) {
-            sum += octreeFillRate(tree->getChildByIdx(i));
+            sum += pointerOctreeFillRate(tree->getChildByIdx(i));
         }
     }
     return sum / 8.0f;

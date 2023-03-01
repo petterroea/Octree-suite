@@ -2,7 +2,7 @@
 
 #include <glm/vec3.hpp>
 
-#include <octree/octree.h>
+#include <octree/pointerOctree.h>
 
 #include <filesystem>
 
@@ -14,7 +14,7 @@ public:
     OctreeSequence(std::filesystem::path videoFolder);
     ~OctreeSequence();
 
-    Octree<glm::vec3>* getOctree(int frame);
+    PointerOctree<glm::vec3>* getOctree(int frame);
 
     int getFrameCount () { return this->frameCount; }
     float getFps() { return this->fps; }

@@ -1,5 +1,6 @@
 #include <glm/vec3.hpp>
 
+// TODO rename GpuPointerOctree?
 class GpuOctree {
 public:
     int children[8] {
