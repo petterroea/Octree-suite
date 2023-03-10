@@ -4,7 +4,7 @@
 #include <octree/octree.h>
 #include <octree/pointerOctree.h>
 
-#include "layeredOctreeContainer.h"
+//#include "layeredOctreeContainer.h"
 
 #define NO_NODE -1
 typedef int layer_ptr_type;

@@ -10,6 +10,8 @@
 #include "deduplicator.h"
 #include "../layeredOctree/layeredOctreeContainer.h"
 
+typedef glm::vec3 octreeProcessingPayload;
+
 struct OctreeNode {
 
 };
@@ -23,7 +25,7 @@ class EncodingSequence {
     int from;
     int to;
 
-    void populateHashmap(int depth, int roodIdx, LayeredOctreeContainer<glm::vec3>& octreeContainer, int max_depth);
+    void populateHashmap(int depth, int roodIdx, LayeredOctreeContainer<octreeProcessingPayload>& octreeContainer, int max_depth);
 public:
     EncodingSequence(OctreeSequence* sequence, int from, int to);
     void encode();

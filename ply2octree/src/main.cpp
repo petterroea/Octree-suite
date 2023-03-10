@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <filesystem>
 
 #include <getopt.h>
 
@@ -41,6 +42,19 @@ int main(int argc, char** argv) {
     }
     if(outputFilename == nullptr) {
         std::cout << "Please specify an output file" << std::endl;
+        return 1;
+    }
+    std::filesystem::path inputPath(inputFilename);
+    std::filesystem::path outputPath(outputFilename);
+    
+    std::cout << "Loading " << inputFilename << " for converting to " << outputFilename << std::endl;
+    if(!strcmp(inputFilename, outputFilename)) {
+        std::cout << "Input and output are the same!" << std::endl;
+        return 1;
+    }
+
+    if(!std::filesystem::exists(inputPath)) {
+        std::cout << inputPath << " doesn't exist" << std::endl;
         return 1;
     }
 

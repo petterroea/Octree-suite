@@ -6,6 +6,10 @@
 
 #include <octree/octree.h>
 
+#include "../layeredOctree/layeredOctreeContainerCuda.h"
+
+#include "../kernels/deduplicatorCuda.h"
+
 DeDuplicator::DeDuplicator(OctreeHashmap& hashmap, LayeredOctreeContainer<glm::vec3>& container, int layer, int nThreads) : hashmap(hashmap), container(container), nThreads(nThreads), layer(layer) {
     for(int i = 0; i < 256; i++) {
         auto job = new DeDuplicationJob;
@@ -43,12 +47,12 @@ DeDuplicator::~DeDuplicator() {
 
 void DeDuplicator::worker(DeDuplicator* me) {
     auto job = me->getNextJob();
-    std::cout << "Starting thread worker" << std::endl;
+    //std::cout << "Starting thread worker" << std::endl;
     while(job != nullptr) {
         int jobId = job->jobId;
         auto vector = me->hashmap.get_vector(jobId);
 
-        std::cout << "Doing " << jobId << " (" << job->count << ") " << ": " << std::endl;
+        //std::cout << "Doing " << jobId << " (" << job->count << ") " << ": " << std::endl;
         if(vector) {
             //std::cout << vector->size() << std::endl;
             int k = std::max(2, static_cast<int>(vector->size() / 50));
@@ -58,7 +62,7 @@ void DeDuplicator::worker(DeDuplicator* me) {
         }
         job = me->getNextJob();
     }
-    std::cout << "Out of work, quitting" << std::endl;
+    //std::cout << "Out of work, quitting" << std::endl;
 }
 
 void DeDuplicator::run() {
@@ -107,20 +111,28 @@ void DeDuplicator::kMeans(int key, int k, int steps) {
 
     float* nearnessTable = new float[populationSize * populationSize];
 
-    std::cout << "Building precalc nearness table" << std::endl;
+    //std::cout << "Building precalc nearness table" << std::endl;
     // TODO speed up with CUDA?
-    for(int x = 0; x < populationSize; x++) {
-        if(x % 50 == 0) {
-            std::cout << "X: " << x << std::endl;
-        }
-        for(int y = 0; y < populationSize; y++) {
-            //auto a = this->container.getNode(this->layer, population[x]);
-            //auto b = this->container.getNode(this->layer, population[y]);
-            float nearness = layeredOctreeSimilarity(population[x], population[y], this->layer, this->container);
-            nearnessTable[x + y*populationSize] = nearness;
+    if(populationSize > 500) {
+        std::cout << "Building precalc table on GPU (" << populationSize << ")" << std::endl;
+        LayeredOctreeContainerCuda gpuContainer(this->container);
+        
+        buildSimilarityLookupTableCuda(nearnessTable, populationSize, this->layer, gpuContainer);
+    } else {
+        std::cout << "Building precalc table on CPU (" << populationSize << ")" << std::endl;
+        for(int x = 0; x < populationSize; x++) {
+            if(x % 50 == 0) {
+                //std::cout << "X: " << x << std::endl;
+            }
+            for(int y = 0; y < populationSize; y++) {
+                //auto a = this->container.getNode(this->layer, population[x]);
+                //auto b = this->container.getNode(this->layer, population[y]);
+                float nearness = layeredOctreeSimilarity(population[x], population[y], this->layer, this->container);
+                nearnessTable[x + y*populationSize] = nearness;
+            }
         }
     }
-    std::cout << "Precalc done" << std::endl;
+    //std::cout << "Precalc done" << std::endl;
 
     for(int step = 0; step < steps; step++) {
         //std::cout << "Step " << step << std::endl;

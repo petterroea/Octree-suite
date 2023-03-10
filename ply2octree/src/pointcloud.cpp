@@ -49,17 +49,20 @@ Pointcloud* parseLittleEndianBinaryPly(PlyMapping& mapping, std::ifstream& handl
 Pointcloud* parsePlyFile(std::string filename) {
     std::ifstream handle(filename);
     if(!handle.is_open()) {
+        std::cout << "Failed to open file" << std::endl;
         throw "Failed to open file";
     }
     std::string line;
     getline(handle, line);
     if(line != "ply") {
+        std::cout << "Invalid magic" << std::endl;
         throw "Invalid magic";
     }
 
     getline(handle, line);
     PlyType type = determinePlyType(line);
     if(type == PlyType::UNKNOWN) {
+        std::cout << "Unknown PLY file" << std::endl;
         throw "Unknown PLY file";
     }
 
@@ -67,6 +70,7 @@ Pointcloud* parsePlyFile(std::string filename) {
     // Parse the element header
     getline(handle, line);
     if(line.rfind(element) != 0) {
+        std::cout << "Failed to parse element header" << std::endl;
         throw "Expected element";
     }
     line = line.substr(line.rfind(" ") + 1);

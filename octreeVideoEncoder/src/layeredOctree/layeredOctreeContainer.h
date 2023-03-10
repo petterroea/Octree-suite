@@ -17,7 +17,7 @@
 template <typename T>
 class LayeredOctreeContainer {
     int chunkEndLevel;
-    std::vector<LayeredOctree<T>>* chunks;
+    std::vector<LayeredOctree<T>>* layers;
 
     int installNode(PointerOctree<T>* node, int level, int maxLevel);
 public:
@@ -27,6 +27,7 @@ public:
     int addOctree(PointerOctree<T>* node);
 
     LayeredOctree<T>* getNode(int layer, int idx);
+    int getLayerSize(int layer);
 
     int getChunkEndLevel();
 };
@@ -39,23 +40,16 @@ LayeredOctreeContainer<T>::LayeredOctreeContainer(PointerOctree<T>* originalOctr
     getOctreeStats(originalOctree, stats, OCTREE_MAX_DEPTH, 0);
     std::cout << "Octree stats:" << std::endl;
 
-    int depth = 0;
+    this->layers = new std::vector<LayeredOctree<T>>[OCTREE_MAX_DEPTH];
     for(int i = 0; i < OCTREE_MAX_DEPTH; i++) {
-        if(stats[i] == 0) {
-            depth = i;
-            break;
-        }
+        this->layers[i] = std::vector<LayeredOctree<T>>();
     }
-    std::cout << "Tree depth: " << depth << std::endl;
-    depth = depth + 2; // Some margin of error :)
 
-    this->chunks = new std::vector<LayeredOctree<T>>[depth];
-
-    // Calculate information used to decide where to make chunks
+    // Calculate information used to decide where to make layers
     for(int i = 0; i < OCTREE_MAX_DEPTH; i++) {
         std::cout << "Level " << i << ": " << stats[i] << std::endl;
     }
-    this->installNode(originalOctree, 0, depth);
+    this->installNode(originalOctree, 0, OCTREE_MAX_DEPTH);
     std::cout << "Successfully converted octree to layered octree" << std::endl;
 }
 
@@ -79,13 +73,18 @@ int LayeredOctreeContainer<T>::installNode(PointerOctree<T>* node, int level, in
             chunked.setChild(childIndex, i, child->getChildCount() == 0);
         }
     }
-    this->chunks[level].push_back(chunked);
-    return this->chunks[level].size()-1;
+    this->layers[level].push_back(chunked);
+    return this->layers[level].size()-1;
 }
 
 template <typename T>
 LayeredOctree<T>* LayeredOctreeContainer<T>::getNode(int layer, int idx) {
-    return &this->chunks[layer][idx];
+    return &this->layers[layer][idx];
+}
+
+template <typename T>
+int LayeredOctreeContainer<T>::getLayerSize(int layer) {
+    return this->layers[layer].size();
 }
 
 template <typename T>

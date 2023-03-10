@@ -12,7 +12,7 @@ OctreeSequenceEncoder::~OctreeSequenceEncoder() {
 }
 
 void OctreeSequenceEncoder::encode() {
-    int sequenceSize = 5;
+    int sequenceSize = 10;
     int currentAt = 0;
     while(currentAt < sequence->getFrameCount() - 1) {
         int length = std::min(

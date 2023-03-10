@@ -19,7 +19,7 @@ EncodingSequence::EncodingSequence(OctreeSequence* sequence, int from, int to):
 }
 
 void EncodingSequence::encode() {
-    PointerOctree<glm::vec3>** octrees = new PointerOctree<glm::vec3>*[this->to - this->from + 1];
+    PointerOctree<octreeProcessingPayload>** octrees = new PointerOctree<octreeProcessingPayload>*[this->to - this->from + 1];
     for(int frame = this->from; frame <= this->to; frame++) {
         std::cout << "Loading frame " << frame << std::endl;
         octrees[frame - this->from] = this->sequence->getOctree(frame);
@@ -33,19 +33,20 @@ void EncodingSequence::encode() {
         std::cout << "Octree diff " << frame << " to " << (frame+1) << ": " << pointerOctreeSimilarity(lhs, rhs) << std::endl;
     }
     // Make the trees exist in the same context, then put them in a hashmap
-    LayeredOctreeContainer<glm::vec3> layeredContainer(octrees[this->from]);
+    LayeredOctreeContainer<octreeProcessingPayload> layeredContainer(octrees[this->from]);
 
     for(int frame = this->from+1; frame <= this->to; frame++) {
         auto tree = octrees[frame - this->from];
         int rootIdx = layeredContainer.addOctree(tree);
         std::cout << "Installed octree with rootidx " << rootIdx << std::endl;
 
-        this->populateHashmap(0, rootIdx, layeredContainer, 6);
+        this->populateHashmap(0, rootIdx, layeredContainer, 8);
     }
 
     // TODO better
     for(int i = 0; i < OCTREE_MAX_DEPTH; i++) {
-        this->deduplicator = new DeDuplicator(this->hashmaps[i], layeredContainer, i, std::thread::hardware_concurrency());
+        std::cout << "------------------------------Deduplicating " << i << std::endl;
+        this->deduplicator = new DeDuplicator(this->hashmaps[i], layeredContainer, i, 1 /*std::thread::hardware_concurrency()*/);
         this->deduplicator->run();
         delete this->deduplicator; //TODO
     }
@@ -74,7 +75,7 @@ void EncodingSequence::encode() {
     delete[] octrees;
 }
 
-void EncodingSequence::populateHashmap(int depth, int idx, LayeredOctreeContainer<glm::vec3>& octreeContainer, int max_depth) {
+void EncodingSequence::populateHashmap(int depth, int idx, LayeredOctreeContainer<octreeProcessingPayload>& octreeContainer, int max_depth) {
     if(!max_depth) {
         return;
     }
@@ -82,7 +83,7 @@ void EncodingSequence::populateHashmap(int depth, int idx, LayeredOctreeContaine
     this->hashmaps[depth].push(tree->getHashKey(), idx);
     for(int i = 0; i < 8; i++) {
         auto child = tree->getChildByIdx(i);
-        if(child) {
+        if(child != NO_NODE) {
             this->populateHashmap(depth+1, child, octreeContainer, max_depth-1);
         }
     }

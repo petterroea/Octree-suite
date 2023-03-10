@@ -1,6 +1,16 @@
 #include "layeredOctreeContainer.h"
 
+
+// We can't use popcount inside cuda because it's a c++ 20 feature
+// Cmake and CUDA does support c++20, but not in any release that has reached ubuntu yet.
+#ifdef __CUDA_ARCH__
+#define popcount __popc
+#else
+
 #include <bit>
+#define popcount std::popcount
+
+#endif
 
 #include <glm/geometric.hpp>
 
@@ -64,11 +74,11 @@ float layeredOctreeFillRate(layer_ptr_type tree, int layer, LayeredOctreeContain
     auto leafFlags = tree_node->getLeafFlags();
     //All leafs? Use bit magic instead
     if( leafFlags == childFlags ) {
-        return (static_cast<float>(std::popcount(childFlags)) / 8.0f);
+        return (static_cast<float>(popcount(childFlags)) / 8.0f);
     }
 
     float sum = 0.0f;
-    sum += std::popcount(leafFlags);
+    sum += popcount(leafFlags);
 
     #pragma GCC unroll 8
     for(int i = 0; i < 8; i++) {
