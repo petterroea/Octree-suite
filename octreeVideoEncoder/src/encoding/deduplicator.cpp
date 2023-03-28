@@ -6,13 +6,14 @@
 
 #include <octree/octree.h>
 
-#include "../layeredOctree/layeredOctreeContainerCuda.h"
+#include <layeredOctree/treeComparison.h>
 
 #include "../kernels/deduplicatorCuda.h"
 
-DeDuplicator::DeDuplicator(OctreeHashmap& hashmap, LayeredOctreeContainer<glm::vec3>& container, int layer, int nThreads) : hashmap(hashmap), container(container), nThreads(nThreads), layer(layer) {
+DeDuplicator::DeDuplicator(OctreeHashmap& hashmap, LayeredOctreeProcessingContainer<octreeColorType>& container, int layer, int nThreads) : hashmap(hashmap), container(container), nThreads(nThreads), layer(layer) {
     for(int i = 0; i < 256; i++) {
-        auto job = new DeDuplicationJob;
+        auto job = new DeDuplicationJob();
+        printf("Created job %p\n", job);
 
         auto vector = this->hashmap.get_vector(i);
 
@@ -29,9 +30,11 @@ DeDuplicator::DeDuplicator(OctreeHashmap& hashmap, LayeredOctreeContainer<glm::v
         return a->count > b->count;
     });
     this->currentJobIterator = jobs.begin();
+    this->cudaContainer = new LayeredOctreeContainerCuda(this->container);
 }
 
 DeDuplicator::~DeDuplicator() {
+    std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Deconstructing" << std::endl;
     for(auto thread : this->threadPool) {
         if(thread) {
             if(thread->joinable()) {
@@ -43,6 +46,7 @@ DeDuplicator::~DeDuplicator() {
     for(auto job : this->jobs) {
         delete job;
     }
+    delete this->cudaContainer;
 }
 
 void DeDuplicator::worker(DeDuplicator* me) {
@@ -62,6 +66,7 @@ void DeDuplicator::worker(DeDuplicator* me) {
         }
         job = me->getNextJob();
     }
+    delete job;
     //std::cout << "Out of work, quitting" << std::endl;
 }
 
@@ -80,9 +85,11 @@ DeDuplicationJob* DeDuplicator::getNextJob() {
     std::lock_guard<std::mutex>(this->jobMutex);
 
     if(this->currentJobIterator == this->jobs.end()) {
+        std::cout << "!!!! No more jobs, quitting" << std::endl;
         return nullptr;
     }
     auto job = *(this->currentJobIterator++);
+    std::cout << "New job fetched: " << job->jobId << std::endl;
     return job;
 }
 
@@ -113,11 +120,10 @@ void DeDuplicator::kMeans(int key, int k, int steps) {
 
     //std::cout << "Building precalc nearness table" << std::endl;
     // TODO speed up with CUDA?
-    if(populationSize > 500) {
+    if(false && populationSize > 200) {
         std::cout << "Building precalc table on GPU (" << populationSize << ")" << std::endl;
-        LayeredOctreeContainerCuda gpuContainer(this->container);
         
-        buildSimilarityLookupTableCuda(nearnessTable, populationSize, this->layer, gpuContainer);
+        buildSimilarityLookupTableCuda(nearnessTable, population, this->layer, cudaContainer);
     } else {
         std::cout << "Building precalc table on CPU (" << populationSize << ")" << std::endl;
         for(int x = 0; x < populationSize; x++) {
@@ -127,7 +133,7 @@ void DeDuplicator::kMeans(int key, int k, int steps) {
             for(int y = 0; y < populationSize; y++) {
                 //auto a = this->container.getNode(this->layer, population[x]);
                 //auto b = this->container.getNode(this->layer, population[y]);
-                float nearness = layeredOctreeSimilarity(population[x], population[y], this->layer, this->container);
+                float nearness = layeredOctreeSimilarity<LayeredOctreeProcessingContainer<octreeColorType>>(population[x], population[y], this->layer, &this->container);
                 nearnessTable[x + y*populationSize] = nearness;
             }
         }
@@ -218,8 +224,15 @@ void DeDuplicator::kMeans(int key, int k, int steps) {
     }
 
     // Find the most similar nodes in each cluster
-    for(int i = 0; i < k; i++) {
-
+    for(int i = 0; i < population.size(); i++) {
+        int bestIndex = centers[assignments[i]];
+        float current_similarity = nearnessTable[bestIndex + i * populationSize];
+        // Is this node similar enough that we want to prune it?
+        if(current_similarity > TREE_NEARNESS_FACTOR) {
+            std::cout << "Trimming away!" << std::endl;
+            this->container.getNode(this->layer, population[i])->getPayload()->replacement = population[bestIndex];
+            this->markTreeAsTrimmed(this->layer, population[i]);
+        }
     }
 
     delete[] centers;
@@ -229,4 +242,21 @@ void DeDuplicator::kMeans(int key, int k, int steps) {
     delete[] bestIndex;
     delete[] k_children;
     delete[] nearnessTable;
+}
+
+
+void DeDuplicator::markTreeAsTrimmed(int layer, int index) {
+    // Don't mark as trimmed if it has already been marked
+    auto node = this->container.getNode(layer, index);
+    auto payload = node->getPayload();
+    if(payload->trimmed) {
+        return;
+    }
+    payload->trimmed = true;
+    for(int i = 0; i < OCTREE_SIZE; i++) {
+        auto child = node->getChildByIdx(i);
+        if(child != NO_NODE) {
+            this->markTreeAsTrimmed(layer+1, node->getChildByIdx(i));
+        }
+    }
 }

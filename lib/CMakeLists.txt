@@ -18,6 +18,11 @@ add_definitions(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
 #include_directories(${SDL2_INCLUDE_DIRS})
 #message(STATUS, "sdl=${SDL2_INCLUDE_DIRS}")
 
+enable_language(CUDA)
+
+find_package(CUDA REQUIRED)
+message(STATUS "cuda_include=${CUDA_INCLUDE_DIRS}")
+
 find_package(OpenGL REQUIRED)
 
 find_package(GLEW REQUIRED)
@@ -30,7 +35,9 @@ message(STATUS "lib_src=${DIR_LIB_SRC}")
 add_library(${PROJECT_NAME} ${DIR_LIB_SRC})
 
 target_include_directories(${PROJECT_NAME} PUBLIC "../rapidjson/include")
+target_include_directories(${PROJECT_NAME} PUBLIC ${CUDA_INCLUDE_DIRS})
 # Define the library
+target_link_libraries(${PROJECT_NAME} ${CUDA_LIBRARIES})
 #target_link_libraries(${CAPTURE_EXECUTABLE_NAME} ${SDL2_LIBRARIES})
 #target_link_libraries(${CAPTURE_EXECUTABLE_NAME} GL)
 #target_link_libraries(${CAPTURE_EXECUTABLE_NAME} ${realsense2_LIBRARY})

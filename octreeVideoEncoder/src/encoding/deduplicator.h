@@ -5,7 +5,10 @@
 #include <mutex>
 
 #include "octreeHashmap.h"
-#include "../layeredOctree/layeredOctreeContainer.h"
+#include "../config.h"
+#include "../structures/octreeProcessingPayload.h"
+#include "../structures/layeredOctreeProcessingContainer.h"
+#include <layeredOctree/layeredOctreeContainerCuda.h>
 
 struct DeDuplicationJob {
     int jobId;
@@ -21,7 +24,8 @@ class DeDuplicator {
 
     int layer;
     OctreeHashmap& hashmap;
-    LayeredOctreeContainer<glm::vec3>& container;
+    LayeredOctreeProcessingContainer<octreeColorType>& container;
+    LayeredOctreeContainerCuda<OctreeProcessingPayload<octreeColorType>>* cudaContainer;
 
     static void worker(DeDuplicator* me);
     std::vector<DeDuplicationJob*>::iterator currentJobIterator;
@@ -29,8 +33,9 @@ class DeDuplicator {
 
     // DeDuplication implementation
     void kMeans(int key, int k, int steps);
+    void markTreeAsTrimmed(int layer, int index);
 public:
-    DeDuplicator(OctreeHashmap& hashmap, LayeredOctreeContainer<glm::vec3>& container, int layer, int nThreads);
+    DeDuplicator(OctreeHashmap& hashmap, LayeredOctreeProcessingContainer<octreeColorType>& container, int layer, int nThreads);
     ~DeDuplicator();
 
     void run();

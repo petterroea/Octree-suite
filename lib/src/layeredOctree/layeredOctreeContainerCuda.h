@@ -4,7 +4,7 @@
 #include "layeredOctreeContainer.h"
 
 #include <cuda_runtime.h>
-#include <cudaHelpers.h>
+#include "../cudaHelpers.h"
 
 template <typename T>
 class LayeredOctreeContainerCuda {
@@ -51,7 +51,7 @@ LayeredOctreeContainerCuda<T>::LayeredOctreeContainerCuda(LayeredOctreeContainer
 // Device-only to prevent accidental use on host
 template <typename T>
 __device__ LayeredOctree<T>* LayeredOctreeContainerCuda<T>::getNode(int layer, int idx) {
-    return this->layersGpu[layer][idx];
+    return &this->layersGpu[layer][idx];
 }
 
 template <typename T>

@@ -1,8 +1,8 @@
 #pragma once
 
 #include <stdint.h>
-#include <octree/octree.h>
-#include <octree/pointerOctree.h>
+#include "../octree/octree.h"
+#include "../octree/pointerOctree.h"
 
 //#include "layeredOctreeContainer.h"
 
@@ -11,9 +11,8 @@ typedef int layer_ptr_type;
 
 template <typename T>
 class LayeredOctree : public Octree<T, layer_ptr_type> {
-    uint8_t layer;
 public:
-    LayeredOctree(T payload, uint8_t layer);
+    LayeredOctree(T payload);
 
     bool setChild(layer_ptr_type child, int idx, bool isLeaf) {
         bool removed_existing = false;
@@ -33,7 +32,7 @@ public:
 };
 
 template <typename T>
-LayeredOctree<T>::LayeredOctree(T payload, uint8_t layer) : Octree<T, layer_ptr_type>(payload), layer(layer) {
+LayeredOctree<T>::LayeredOctree(T payload) : Octree<T, layer_ptr_type>(payload) {
     for(int i = 0; i < 8; i++) {
         this->children[i] = NO_NODE;
     }

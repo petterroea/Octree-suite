@@ -11,9 +11,17 @@ enable_language(CUDA)
 find_package(CUDA REQUIRED)
 message(STATUS "cuda_include=${CUDA_INCLUDE_DIRS}")
 
+set(CUDA_FLAGS, "${CUDA_FLAGS} -g -G")
+
 # Target
 file(GLOB_RECURSE DIR_CAPTURE_TO_PLY_SRCS src/kernels/*.cu src/**/*.cpp src/*.cpp)
 add_executable(${CAPTURE_TO_PLY_BINARY_NAME} ${DIR_CAPTURE_TO_PLY_SRCS})
+
+target_compile_options(${CAPTURE_TO_PLY_BINARY_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
+                       -G
+                       -g
+                       >)
+
 
 # Includes
 target_include_directories(${CAPTURE_TO_PLY_BINARY_NAME} PUBLIC ${CUDA_INCLUDE_DIRS})

@@ -1,5 +1,5 @@
-#include "../layeredOctree/layeredOctreeContainerCuda.h"
+#include <layeredOctree/layeredOctreeContainerCuda.h>
 #include "../encoding/encodingSequence.h"
 
 
-void buildSimilarityLookupTableCuda(float* nearnessTable, int populationSize, int layer, LayeredOctreeContainerCuda<octreeProcessingPayload>& container);
+void buildSimilarityLookupTableCuda(float* nearnessTable, std::vector<layer_ptr_type>& population, int layer, LayeredOctreeContainerCuda<OctreeProcessingPayload<octreeColorType>>* container);
