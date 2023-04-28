@@ -13,9 +13,14 @@
 #include <glm/geometric.hpp>
 
 template <typename T>
-__host__ __device__ float diffLayeredOctreeColor(layer_ptr_type lhs, layer_ptr_type rhs, int layer, T container) {
+__host__ __device__ float diffLayeredOctreeColor(layer_ptr_type lhs, layer_ptr_type rhs, int layer, T* container) {
     // Use euclidean distance. TODO: Delta E
-    return glm::length(*container.getNode(layer, lhs)->getPayload() - *container.getNode(layer, rhs)->getPayload());
+    return glm::length(*container->getNode(layer, lhs)->getPayload() - *container->getNode(layer, rhs)->getPayload());
+}
+template <typename T>
+__host__ __device__ float diffProcessingLayeredOctreeColor(layer_ptr_type lhs, layer_ptr_type rhs, int layer, LayeredOctreeProcessingContainer<T>* container) {
+    // Use euclidean distance. TODO: Delta E
+    return glm::length(container->getNode(layer, lhs)->getPayload()->data - container->getNode(layer, rhs)->getPayload()->data);
 }
 
 template <typename T>
@@ -28,8 +33,9 @@ __host__ __device__ float layeredOctreeFillRate(layer_ptr_type tree, int layer, 
         #endif
     }
     auto tree_node = container->getNode(layer, tree);
+    // No children? 0% fill
     if(!tree_node->getChildCount()) {
-        return 1.0f;
+        return 0.0f;
     }
     /*if(
         lhs->getLeafFlags() == rhs->getLeafFlags() && 
@@ -39,16 +45,21 @@ __host__ __device__ float layeredOctreeFillRate(layer_ptr_type tree, int layer, 
     } */
     auto childFlags = tree_node->getChildFlags();
     auto leafFlags = tree_node->getLeafFlags();
-    //All leafs? Use bit magic instead
+
+    //All children are leafs? Use bit magic instead
     if( leafFlags == childFlags ) {
+        // How many % of the children are filled?
         return (static_cast<float>(popcount(childFlags)) / 8.0f);
     }
 
+    // Not all children are leafs, we need to recurse
     float sum = 0.0f;
-    sum += popcount(leafFlags);
+    // Add all leafs to the sum
+    sum += static_cast<float>(popcount(leafFlags));
 
     #pragma GCC unroll 8
-    for(int i = 0; i < 8; i++) {
+    for(int i = 0; i < OCTREE_SIZE; i++) {
+        // Recurse all children that aren't leafs
         if(((childFlags ^ leafFlags) >> i) & 1) {
             sum += layeredOctreeFillRate<T>(tree_node->getChildByIdx(i), layer+1, container);
         }
@@ -76,9 +87,10 @@ __host__ __device__ float layeredOctreeSimilarity(layer_ptr_type lhs, layer_ptr_
         // Both leaf nodes? 100% similar
         return 1.0f;
     } else if(lhs_children && !rhs_children) {
-        return layeredOctreeFillRate(lhs, layer, container);
+        // rhs has no children, the less nodes lhs has, the more similar
+        return 1.0f - layeredOctreeFillRate(lhs, layer, container);
     } else if(!lhs_children && rhs_children) {
-        return layeredOctreeFillRate(rhs, layer, container);
+        return 1.0f - layeredOctreeFillRate(rhs, layer, container);
     }
     // Both nodes are populated - calculate similarity
     float sum = 0.0f;
@@ -86,12 +98,16 @@ __host__ __device__ float layeredOctreeSimilarity(layer_ptr_type lhs, layer_ptr_
         auto lhs_child = lhs_node->getChildByIdx(i);
         auto rhs_child = rhs_node->getChildByIdx(i);
         if(lhs_child == NO_NODE && rhs_child == NO_NODE) {
+            // Both child spots are empty, 100% similar
             sum += 1.0f;
         } else if(lhs_child != NO_NODE && rhs_child != NO_NODE) {
+            // Both child spots are occupied, get their similarity
             sum += layeredOctreeSimilarity<T>(lhs_child, rhs_child, layer+1, container);
         } else if(lhs_child != NO_NODE && rhs_child == NO_NODE) {
+            // lhs is occupied, rhs is empty. They are 100% similar if lhs is empty
             sum += 1.0f - layeredOctreeFillRate<T>(lhs_child, layer+1, container);
         } else { //lhs_child == NO_NODE && rhs_child != NO_NODE
+            // Only rhs is occupied, fill rate is inverse of rhs fill rate
             sum += 1.0f - layeredOctreeFillRate<T>(rhs_child, layer+1, container);
         }
     }

@@ -1,10 +1,10 @@
 #pragma once
-#include <layeredOctree/layeredOctreeContainer.h>
+#include <layeredOctree/layeredOctreeContainerVector.h>
 
 #include "octreeProcessingPayload.h"
 
 template<typename T>
-class LayeredOctreeProcessingContainer: public LayeredOctreeContainer<OctreeProcessingPayload<T>> {
+class LayeredOctreeProcessingContainer: public LayeredOctreeContainerVector<OctreeProcessingPayload<T>> {
     int installNode(PointerOctree<T>* node, int level, int maxLevel);
 public:
     int addOctree(PointerOctree<T>* node);

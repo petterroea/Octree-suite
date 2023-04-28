@@ -30,7 +30,7 @@ public:
 
     int getHashKey();
 
-    T* getPayload() {
+    __host__ __device__ T* getPayload() {
         return &this->payload;
     }
     __host__ __device__ uint8_t getChildCount() const {
@@ -41,6 +41,13 @@ public:
     }
     __host__ __device__ uint8_t getLeafFlags() const {
         return this->leafFlags;
+    }
+
+    __host__ void setChildFlags(uint8_t flags) {
+        this->childFlags = flags;
+    }
+    __host__ void setLeafFlags(uint8_t flags) {
+        this->leafFlags = flags;
     }
 };
 

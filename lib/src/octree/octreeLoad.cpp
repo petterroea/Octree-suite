@@ -60,5 +60,8 @@ PointerOctree<glm::vec3>* loadOctree(std::string filename) {
     reader.read(fileBuffer, fileSize);
 
     PointerOctree<glm::vec3>* root = getChild(fileBuffer, rootOffset);
+    reader.close();
+
+    delete[] fileBuffer;
     return root;
 }
