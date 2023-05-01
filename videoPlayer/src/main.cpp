@@ -7,6 +7,10 @@
 #include "players/videoPlayer.h"
 #include "players/octree/octreeVideoPlayer.h"
 
+#include "time/timeProvider.h"
+#include "time/clockTimeProvider.h"
+#include "time/recordingTimeProvider.h"
+
 #include "gui/gui.h"
 
 #include <glm/vec3.hpp>
@@ -26,12 +30,17 @@ void printUsage() {
     std::cout << "  videoPlayer [format] [file] <options>" << std::endl;
     std::cout << "Supported formats: " << std::endl;
     std::cout << "  octree - Octree video format" << std::endl;
+    std::cout << std::endl;
+    std::cout << "Supported options: " << std::endl;
+    std::cout << "  --record [outdir] - records the entire video to PNG frames" << std::endl;
+    std::cout << "  --width [number] - specifies the window width" << std::endl;
+    std::cout << "  --height [number] - specifies the window height" << std::endl;
 }
 
 int main(int argc, char *argv[]) {
     std::cout << "Octree video renderer" << std::endl;
 
-    if(argc != 3) {
+    if(argc < 3 || argc % 2 != 1) {
         printUsage();
         return 1;
     }
@@ -39,15 +48,41 @@ int main(int argc, char *argv[]) {
     auto format = argv[1];
     auto file = argv[2];
 
+    TimeProvider* timeProvider = new ClockTimeProvider();
+    bool recordMode = false;
+    std::filesystem::path* recordingOutDir = nullptr;
+
+    int WIDTH = 800;
+    int HEIGHT = 600;
+
+    for(int i = 3; i < argc-1; i += 2) {
+        if(!strcmp(argv[i], "--record")) {
+            std::cout << "Starting in recording mode, recording to " << argv[i+1] << std::endl;
+            recordMode = true;
+
+            delete timeProvider;
+            timeProvider = new RecordingTimeProvider(30, 30);
+
+            recordingOutDir = new std::filesystem::path(argv[i+1]);
+            std::filesystem::create_directories(*recordingOutDir);
+        } else if(!strcmp(argv[i], "--width")) {
+            WIDTH = atoi(argv[i+1]);
+        } else if(!strcmp(argv[i], "--height")) {
+            HEIGHT = atoi(argv[i+1]);
+        } else {
+            throw std::runtime_error("Unknown parameter " + std::string(argv[i]));
+        }
+    }
+
     VideoPlayer* player = nullptr;
 
     // Init GUI
-    Gui* gui = new Gui();
+    Gui* gui = new Gui(WIDTH, HEIGHT, "Octree playback application");
 
     if(!strcmp(format, "octree")) {
-        player = new OctreeVideoPlayer(std::filesystem::path(file));
+        player = new OctreeVideoPlayer(timeProvider, std::filesystem::path(file));
     } else {
-        throw std::runtime_error("Invalid format: + format");
+        throw std::runtime_error("Invalid format: " + std::string(format));
     }
 
     // Render loop
@@ -57,7 +92,7 @@ int main(int argc, char *argv[]) {
     static float values[90] = {};
     static int values_offset = 0;
 
-    float yaw = 0.0f;
+    float yaw = 1.0f;
     float pitch = 0.0f;
 
     float storedYaw = 0.0f;
@@ -122,8 +157,6 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        int WIDTH, HEIGHT;
-
         SDL_GetWindowSize(gui->getWindow(), &WIDTH, &HEIGHT);
         glViewport(0, 0, WIDTH, HEIGHT);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -151,58 +184,42 @@ int main(int argc, char *argv[]) {
         // Renders a frame
         player->render(WIDTH, HEIGHT, view, projection);
 
-        ImGui::Begin("Performance");
+        if(!recordMode) {
+            ImGui::Begin("Performance");
 
-        float average = 0.0f;
-        float min = 1000.0f;
-        float max = 0.0f;
-        for (int n = 0; n < IM_ARRAYSIZE(values); n++) {
-            average += values[n];
-            if(values[n] > max)
-                max = values[n];
-            if(values[n] < min) 
-                min = values[n];
-        }
-
-        average /= (float)IM_ARRAYSIZE(values);
-        char overlay[128];
-        sprintf(overlay, "min %fms avg %fms (%f fps) max %fms", min, average, 1000.0f/average, max);
-        ImGui::PlotLines("Frame time", values, IM_ARRAYSIZE(values), values_offset, overlay, 0.0f, max*1.1f, ImVec2(0, 80.0f));
-
-        ImGui::End();
-
-        // Play controls
-        ImGui::Begin("Play controls");
-
-        float originalTime = player->getTime();
-        float time = originalTime;
-
-        ImGui::SliderFloat("Time", &time, 0.0f, player->getVideoLength());
-        if(time != originalTime) {
-            std::cout << "Seeking " << abs(time-originalTime) << " seconds." << std::endl;
-            player->seek(time);
-        }
-
-        if(player->isPlaying()) {
-            if(ImGui::Button("Pause")) {
-                player->pause();
+            float average = 0.0f;
+            float min = 1000.0f;
+            float max = 0.0f;
+            for (int n = 0; n < IM_ARRAYSIZE(values); n++) {
+                average += values[n];
+                if(values[n] > max)
+                    max = values[n];
+                if(values[n] < min) 
+                    min = values[n];
             }
-        } else {
-            if(ImGui::Button("Play")) {
-                player->play();
-            }
-        }
-        if(ImGui::Button("Stop")) {
-            if(player->isPlaying()) {
-                player->pause();
-            }
-            player->seek(0.0f);
-        }
 
-        ImGui::End();
+            average /= (float)IM_ARRAYSIZE(values);
+            char overlay[128];
+            sprintf(overlay, "min %fms avg %fms (%f fps) max %fms", min, average, 1000.0f/average, max);
+            ImGui::PlotLines("Frame time", values, IM_ARRAYSIZE(values), values_offset, overlay, 0.0f, max*1.1f, ImVec2(0, 80.0f));
+
+            ImGui::End();
+
+            timeProvider->renderControls();
+        }
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        if(!player->isBuffering()) {
+            if(recordMode) {
+                gui->saveFramebufferToFile(
+                    reinterpret_cast<RecordingTimeProvider*>(timeProvider)->getCurrentFrame(),
+                    recordingOutDir
+                );
+            }
+            timeProvider->onFrameComplete();
+        }
 
         auto end = std::chrono::system_clock::now();
         float elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -214,5 +231,7 @@ int main(int argc, char *argv[]) {
 
     // Shut down
     std::cout << "Shutting down..." << std::endl;
+    delete gui;
     delete player;
+    delete timeProvider;
 }

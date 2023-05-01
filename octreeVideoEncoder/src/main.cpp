@@ -66,5 +66,6 @@ int main(int argc, char** argv) {
     delete sequence;
     delete encoder;
 
+    std::cout << "Done encoding, exiting..." << std::endl;
     return 0;
 }

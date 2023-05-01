@@ -1,15 +1,10 @@
 #include "octreeVideoPlayer.h"
 
-#include <exception>
-
-OctreeVideoPlayer::OctreeVideoPlayer(std::filesystem::path videoPath) : 
+OctreeVideoPlayer::OctreeVideoPlayer(TimeProvider* timeProvider, std::filesystem::path videoPath) : 
+    timeProvider(timeProvider),
     videoPath(videoPath), 
-    startOffset(0.0f), 
-    playing(false),
     metadata(videoPath),
     loader(&this->allocator) {
-    this->startTime = std::chrono::high_resolution_clock::now();
-
     OctreeFrameset* firstFrame = this->metadata.getFramesetByFrame(0);
     this->loader.requestFrameset(firstFrame);
     std::cout << "LOADER: Requested the first frame" << std::endl;
@@ -57,41 +52,6 @@ void OctreeVideoPlayer::render(int width, int height, glm::mat4 view, glm::mat4 
     this->renderer->render(this->currentFrame, renderFrame, view, projection);
 }
 
-void OctreeVideoPlayer::play() {
-    this->startTime = std::chrono::high_resolution_clock::now();
-    this->playing = true;
-}
-
-void OctreeVideoPlayer::pause() {
-    this->startOffset = this->getTime();
-    this->playing = false;
-}
-
-void OctreeVideoPlayer::seek(float time) {
-    if(time < 0.0f) {
-        throw std::runtime_error("Cannot seek to negative time");
-    }
-    this->startOffset = time;
-    if(this->playing) {
-        this->startTime = std::chrono::high_resolution_clock::now();
-    }
-}
-
-float OctreeVideoPlayer::getTime() {
-    if(!playing) {
-        return this->startOffset;
-    }
-
-    std::chrono::duration<float> offset = std::chrono::high_resolution_clock::now() - startTime;
-
-    // TODO: use video end time
-    float totalPlayPosition = offset.count() + this->startOffset;
-    if(totalPlayPosition > this->getVideoLength()) {
-        return this->getVideoLength();
-    }
-    return totalPlayPosition;
-}
-
 float OctreeVideoPlayer::getVideoLength() {
     return 10.0f;
 }
@@ -101,7 +61,13 @@ float OctreeVideoPlayer::getFps() {
 }
 
 int OctreeVideoPlayer::getCurrentFrame() {
-    float time = this->getTime();
+    float time = this->timeProvider->getTime();
     float fps = this->getFps();
     return static_cast<int>(time * fps);
+}
+
+bool OctreeVideoPlayer::isBuffering() {
+    bool buffering = this->currentFrame == nullptr;
+    std::cout << "Buffering? " << (buffering ? "yes" : "no") << std::endl;
+    return buffering;
 }

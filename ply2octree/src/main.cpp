@@ -73,4 +73,7 @@ int main(int argc, char** argv) {
     auto octree = generator.boxSortOuter(15);
 
     generator.writeToFile(octree, outputFilename);
+
+    delete octree;
+    delete file;
 }

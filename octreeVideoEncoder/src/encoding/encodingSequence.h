@@ -31,5 +31,6 @@ class EncodingSequence {
     void writeToDisk(LayeredOctreeProcessingContainer<octreeColorType>& trees, std::string filename);
 public:
     EncodingSequence(OctreeSequence* sequence, int from, int to, std::string fullPath, VideoEncoderRunArgs* args);
+    ~EncodingSequence();
     void encode();
 };

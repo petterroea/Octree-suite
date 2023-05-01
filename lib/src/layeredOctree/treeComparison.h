@@ -33,9 +33,9 @@ __host__ __device__ float layeredOctreeFillRate(layer_ptr_type tree, int layer, 
         #endif
     }
     auto tree_node = container->getNode(layer, tree);
-    // No children? 0% fill
+    // No children? Leaf node - 100% fill
     if(!tree_node->getChildCount()) {
-        return 0.0f;
+        return 1.0f;
     }
     /*if(
         lhs->getLeafFlags() == rhs->getLeafFlags() && 
@@ -87,12 +87,15 @@ __host__ __device__ float layeredOctreeSimilarity(layer_ptr_type lhs, layer_ptr_
         // Both leaf nodes? 100% similar
         return 1.0f;
     } else if(lhs_children && !rhs_children) {
-        // rhs has no children, the less nodes lhs has, the more similar
-        return 1.0f - layeredOctreeFillRate(lhs, layer, container);
+        // rhs has no children, meaning it's a leaf node.
+        // The more space lhs occupies, the more similar the nodes are
+        // TODO
+        return layeredOctreeFillRate(lhs, layer, container);
     } else if(!lhs_children && rhs_children) {
-        return 1.0f - layeredOctreeFillRate(rhs, layer, container);
+        // Same as above but opposite
+        return layeredOctreeFillRate(rhs, layer, container);
     }
-    // Both nodes are populated - calculate similarity
+    // Both nodes are populated - calculate similarity of the children
     float sum = 0.0f;
     for(int i = 0; i < 8; i++) {
         auto lhs_child = lhs_node->getChildByIdx(i);
@@ -104,10 +107,10 @@ __host__ __device__ float layeredOctreeSimilarity(layer_ptr_type lhs, layer_ptr_
             // Both child spots are occupied, get their similarity
             sum += layeredOctreeSimilarity<T>(lhs_child, rhs_child, layer+1, container);
         } else if(lhs_child != NO_NODE && rhs_child == NO_NODE) {
-            // lhs is occupied, rhs is empty. They are 100% similar if lhs is empty
+            // lhs child is occupied, rhs child is empty. They are 100% similar if lhs is empty
             sum += 1.0f - layeredOctreeFillRate<T>(lhs_child, layer+1, container);
         } else { //lhs_child == NO_NODE && rhs_child != NO_NODE
-            // Only rhs is occupied, fill rate is inverse of rhs fill rate
+            // Only rhs child is occupied, fill rate is inverse of lhs fill rate
             sum += 1.0f - layeredOctreeFillRate<T>(rhs_child, layer+1, container);
         }
     }

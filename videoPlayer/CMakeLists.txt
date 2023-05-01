@@ -34,6 +34,7 @@ target_include_directories(${OCTREE_VIDEO_PLAYER_BINARY_NAME} PUBLIC ${SDL2_INCL
 target_include_directories(${OCTREE_VIDEO_PLAYER_BINARY_NAME} PUBLIC ${GLEW_INCLUDE_DIRS})
 target_include_directories(${OCTREE_VIDEO_PLAYER_BINARY_NAME} PUBLIC ${IMGUI_SOURCE_DIR} ${IMGUI_BACKENDS_DIR})
 target_include_directories(${OCTREE_VIDEO_PLAYER_BINARY_NAME} PUBLIC "../lib/src")
+target_include_directories(${OCTREE_VIDEO_PLAYER_BINARY_NAME} PUBLIC "../stb")
 target_include_directories(${OCTREE_VIDEO_PLAYER_BINARY_NAME} PUBLIC "../rapidjson/include")
 
 # Linking

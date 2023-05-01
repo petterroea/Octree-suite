@@ -9,6 +9,7 @@ class EncodingJob {
     std::filesystem::path fullSequencePath;
 public:
     EncodingJob(int from, int to, std::filesystem::path fullSequencePath);
+    ~EncodingJob();
 
     int getFrom() const;
     int getTo() const;

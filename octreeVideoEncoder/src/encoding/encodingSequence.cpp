@@ -23,6 +23,10 @@ EncodingSequence::EncodingSequence(OctreeSequence* sequence, int from, int to, s
     }
 }
 
+EncodingSequence::~EncodingSequence() {
+    std::cout << "Encoding Sequence destruct: " << this->from << " " << this->to << std::endl;
+}
+
 void EncodingSequence::encode() {
     PointerOctree<octreeColorType>** octrees = new PointerOctree<octreeColorType>*[this->to - this->from + 1];
     for(int frame = this->from; frame <= this->to; frame++) {

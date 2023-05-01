@@ -24,16 +24,21 @@ DeDuplicator::DeDuplicator(OctreeHashmap& hashmap, LayeredOctreeProcessingContai
         }
         job->jobId = i;
 
-        jobs.push_back(job);
+        this->jobs.push_back(job);
     }
     std::sort(jobs.begin(), jobs.end(), [](const DeDuplicationJob* a, const DeDuplicationJob* b) -> bool {
         return a->count > b->count;
     });
-    this->currentJobIterator = jobs.begin();
+
+    this->jobsIterator = this->jobs.begin();
     //this->cudaContainer = new LayeredOctreeContainerCuda(this->container);
 }
 
 DeDuplicator::~DeDuplicator() {
+    std::cout << "DeDuplicator destructor layer " << layer << std::endl;
+    for(auto job : this->jobs) {
+        delete job;
+    }
 }
 
 void DeDuplicator::worker(DeDuplicator* me) {
@@ -41,6 +46,7 @@ void DeDuplicator::worker(DeDuplicator* me) {
     //std::cout << "Starting thread worker" << std::endl;
     while(job != nullptr) {
         int jobId = job->jobId;
+        //std::cout << "Starting job " << jobId << std::endl;
         auto vector = me->hashmap.get_vector(jobId);
 
         //std::cout << "Doing " << jobId << " (" << job->count << ") " << ": " << std::endl;
@@ -51,7 +57,6 @@ void DeDuplicator::worker(DeDuplicator* me) {
         } else {
             //std::cout << "none" << std::endl;
         }
-        delete job;
         job = me->getNextJob();
     }
     //std::cout << "Out of work, quitting" << std::endl;
@@ -72,12 +77,15 @@ void DeDuplicator::run() {
 DeDuplicationJob* DeDuplicator::getNextJob() {
     std::lock_guard<std::mutex>(this->jobMutex);
 
-    if(this->currentJobIterator == this->jobs.end()) {
-        //std::cout << "!!!! No more jobs, quitting" << std::endl;
+    if(this->jobsIterator == this->jobs.end()) {
         return nullptr;
     }
-    auto job = *(this->currentJobIterator++);
-    //std::cout << "New job fetched: " << job->jobId << std::endl;
+
+    auto job = *(this->jobsIterator++);
+    //std::cout << "Got new deduplication job: " << job->jobId << std::endl;
+    if(job->jobId > 256) {
+        throw std::runtime_error("data corruption detected");
+    }
     return job;
 }
 

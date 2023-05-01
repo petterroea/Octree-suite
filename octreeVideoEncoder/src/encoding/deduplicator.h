@@ -1,6 +1,7 @@
 #pragma once
 
 #include <thread>
+#include <queue>
 #include <vector>
 #include <mutex>
 
@@ -22,6 +23,7 @@ class DeDuplicator {
 
     std::mutex jobMutex;
     std::vector<DeDuplicationJob*> jobs;
+    std::vector<DeDuplicationJob*>::iterator jobsIterator;
 
     int layer;
     OctreeHashmap& hashmap;
@@ -29,7 +31,6 @@ class DeDuplicator {
     //LayeredOctreeContainerCuda<OctreeProcessingPayload<octreeColorType>>* cudaContainer;
 
     static void worker(DeDuplicator* me);
-    std::vector<DeDuplicationJob*>::iterator currentJobIterator;
     DeDuplicationJob* getNextJob();
 
     // DeDuplication implementation

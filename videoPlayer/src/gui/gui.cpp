@@ -2,10 +2,15 @@
 
 #include <iostream>
 #include <exception>
+#include <vector>
 
 #include "imgui.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_opengl3.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+
+#include "stb_image_write.h"
 
 void GLAPIENTRY
 MessageCallback( GLenum source,
@@ -22,11 +27,7 @@ MessageCallback( GLenum source,
 }
 
 
-void Gui::init() {
-    //SDL
-    int WIDTH = 800;
-    int HEIGHT = 600;
-
+void Gui::init(int WIDTH, int HEIGHT, const char* windowTitle) {
     // SDL setup
     if(SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cout << "Failed initialize video" << std::endl;
@@ -39,7 +40,7 @@ void Gui::init() {
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-    this->window = SDL_CreateWindow("Octree capture", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+    this->window = SDL_CreateWindow(windowTitle, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
     if (!this->window) {/* Die if creation failed */
         std::cout << "Unable to create window" << std::endl;
@@ -84,10 +85,31 @@ void Gui::init() {
     std::cout << "Initialized graphics" << std::endl;
 }
 
-Gui::Gui() {
-    this->init();
+Gui::Gui(int width, int height, const char* windowTitle) {
+    this->init(width, height, windowTitle);
 }
 
 Gui::~Gui() {
 
+}
+void Gui::saveFramebufferToFile(int frameNumber, std::filesystem::path* folder) {
+    // https://lencerf.github.io/post/2019-09-21-save-the-opengl-rendering-to-image-file/
+    int width, height;
+
+    std::filesystem::path filename = *folder / std::filesystem::path("output-" + std::to_string(frameNumber) + ".png");
+
+    SDL_GetWindowSize(this->window, &width, &height);
+
+    GLsizei nrChannels = 3;
+    GLsizei stride = nrChannels * width;
+    stride += (stride % 4) ? (4 - stride % 4) : 0;
+    GLsizei bufferSize = stride * height;
+    std::vector<char> buffer(bufferSize);
+    glPixelStorei(GL_PACK_ALIGNMENT, 4);
+    glReadBuffer(GL_FRONT);
+    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer.data());
+    stbi_flip_vertically_on_write(true);
+    stbi_write_png(filename.string().c_str(), width, height, nrChannels, buffer.data(), stride);
+
+    std::cout << "Saved frame " << frameNumber << " to " << filename.string() << std::endl;
 }
