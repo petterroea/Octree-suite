@@ -96,7 +96,11 @@ void Gui::saveFramebufferToFile(int frameNumber, std::filesystem::path* folder) 
     // https://lencerf.github.io/post/2019-09-21-save-the-opengl-rendering-to-image-file/
     int width, height;
 
-    std::filesystem::path filename = *folder / std::filesystem::path("output-" + std::to_string(frameNumber) + ".png");
+    char filename[124];
+    memset(filename, 0, sizeof(filename));
+    sprintf(filename, "%06d.png", frameNumber);
+
+    std::filesystem::path fullpath = *folder / std::filesystem::path(filename);
 
     SDL_GetWindowSize(this->window, &width, &height);
 
@@ -109,7 +113,7 @@ void Gui::saveFramebufferToFile(int frameNumber, std::filesystem::path* folder) 
     glReadBuffer(GL_FRONT);
     glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer.data());
     stbi_flip_vertically_on_write(true);
-    stbi_write_png(filename.string().c_str(), width, height, nrChannels, buffer.data(), stride);
+    stbi_write_png(fullpath.string().c_str(), width, height, nrChannels, buffer.data(), stride);
 
-    std::cout << "Saved frame " << frameNumber << " to " << filename.string() << std::endl;
+    std::cout << "Saved frame " << frameNumber << " to " << fullpath.string() << std::endl;
 }

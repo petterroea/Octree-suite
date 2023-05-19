@@ -19,9 +19,10 @@ struct PlyMapping {
     int r = -1;
     int g = -1;
     int b = -1;
+    int size = -1;
     
     bool valid() {
-        return x != -1 && y != -1 && z != -1 && r != -1 && g != -1 && b != -1;
+        return x != -1 && y != -1 && z != -1 && r != -1 && g != -1 && b != -1 && size != -1;
     }
 };
 

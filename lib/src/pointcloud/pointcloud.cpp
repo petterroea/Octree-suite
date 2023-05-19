@@ -1,6 +1,8 @@
 #include "pointcloud.h"
 
 #include <iostream>
+#include <exception>
+#include <filesystem>
 
 Pointcloud::Pointcloud(glm::vec3* vertices, glm::vec3* colors, int pointCount): vertices(vertices), colors(colors), pointCount(pointCount) {
 
@@ -32,38 +34,42 @@ PlyType determinePlyType(std::string line) {
 Pointcloud* parseLittleEndianBinaryPly(PlyMapping& mapping, std::ifstream& handle, int count) {
     glm::vec3* points = new glm::vec3[count];
     glm::vec3* colors = new glm::vec3[count];
+    unsigned char* values = new unsigned char[mapping.size];
+    std::cout << "Parsing " << count << " ply values... (ply size " << mapping.size << ", number: " << count << " )" << std::endl;
     for(int i = 0; i < count; i++) {
-        float values[6];
-        handle.read((char*)&values, sizeof(float)*6);
-        points[i].x = values[mapping.x];
-        points[i].y = values[mapping.y];
-        points[i].z = values[mapping.z];
+        handle.read((char*)values, mapping.size);
+        points[i].x = *((float*)(&values[mapping.x]));
+        points[i].y = *((float*)(&values[mapping.y]));
+        points[i].z = *((float*)(&values[mapping.z]));
 
-        colors[i].x = values[mapping.r];
-        colors[i].y = values[mapping.g];
-        colors[i].z = values[mapping.b];
+        colors[i].x = static_cast<float>(values[mapping.r])/255.0f;
+        colors[i].y = static_cast<float>(values[mapping.g])/255.0f;
+        colors[i].z = static_cast<float>(values[mapping.b])/255.0f;
     }
+    delete[] values;
+    std::cout << "Successfully parsed ply" << std::endl;
     return new Pointcloud(points, colors, count);
 }
 
 Pointcloud* parsePlyFile(std::string filename) {
     std::ifstream handle(filename);
+    std::cout << "Loading " << filename << std::endl;
     if(!handle.is_open()) {
         std::cout << "Failed to open file" << std::endl;
-        throw "Failed to open file";
+        throw std::runtime_error("Failed to open file");
     }
     std::string line;
     getline(handle, line);
     if(line != "ply") {
         std::cout << "Invalid magic" << std::endl;
-        throw "Invalid magic";
+        throw std::runtime_error("Invalid magic");
     }
 
     getline(handle, line);
     PlyType type = determinePlyType(line);
     if(type == PlyType::UNKNOWN) {
         std::cout << "Unknown PLY file" << std::endl;
-        throw "Unknown PLY file";
+        throw std::runtime_error("Unknown PLY file");
     }
 
     std::string element("element ");
@@ -71,7 +77,7 @@ Pointcloud* parsePlyFile(std::string filename) {
     getline(handle, line);
     if(line.rfind(element) != 0) {
         std::cout << "Failed to parse element header" << std::endl;
-        throw "Expected element";
+        throw std::runtime_error("Expected element");
     }
     line = line.substr(line.rfind(" ") + 1);
     int elementCount = std::atoi(line.c_str());
@@ -79,6 +85,7 @@ Pointcloud* parsePlyFile(std::string filename) {
 
     PlyMapping mapping;
     std::string floatName("float ");
+    std::string ucharName("uchar ");
     std::string property("property ");
     int curIdx = 0;
     // Parse the header until we reach end_header
@@ -86,36 +93,51 @@ Pointcloud* parsePlyFile(std::string filename) {
         getline(handle, line);
         if(line.rfind(property) != 0) {
             if(line.rfind(element) == 0) {
-                throw "More than one element - unsupported file";
+                std::cout << "More than one element - unsupported" << std::endl;
+                throw std::runtime_error("More than one element - unsupported file");
             }
             else if(line == "end_header") {
                 break;
             } else {
-                throw "Unsupported line";
+                std::cout << "Unsupported line" << std::endl;
+                throw std::runtime_error("Unsupported line");
             }
         } else {
             line = line.substr(property.length());
-            if(line.rfind(floatName) != 0) {
-                throw "Invalid data type - not supported";
+            if(line.rfind(floatName) != 0 && line.rfind(ucharName) != 0) {
+                std::cout << "Invalid data type: " << line << std::endl;
+                throw std::runtime_error("Invalid data type - not supported");
             }
             line = line.substr(floatName.length());
             // Determine property name
             if(line == "x") {
-                mapping.x = curIdx++;
+                mapping.x = curIdx;
+                curIdx += 4;
             } else if(line == "y") {
-                mapping.y = curIdx++;
+                mapping.y = curIdx;
+                curIdx += 4;
             } else if(line == "z") {
-                mapping.z = curIdx++;
-            } else if(line == "r") {
+                mapping.z = curIdx;
+                curIdx += 4;
+            } else if(line == "red") {
                 mapping.r = curIdx++;
-            } else if(line == "g") {
+            } else if(line == "green") {
                 mapping.g = curIdx++;
-            } else if(line == "b") {
+            } else if(line == "blue") {
                 mapping.b = curIdx++;
             } else {
-                throw "Unknown property type";
+                std::cout << "Unknown property type: " << line << std::endl;
+                throw std::runtime_error("Unknown property type " + line);
             }
         }
+    }
+    mapping.size = curIdx;
+    std::cout << "Parsing ply..." << std::endl;
+
+    // Sanity check the file size
+    if(std::filesystem::file_size(filename) < curIdx * elementCount) {
+        std::cout << "ERROR: Unable to parse pointcloud - expected size is bigger than the file" << std::endl;
+        throw std::runtime_error("Invalid pointcloud file");
     }
 
     if(!mapping.valid()) {

@@ -6,6 +6,7 @@
 
 #include "players/videoPlayer.h"
 #include "players/octree/octreeVideoPlayer.h"
+#include "players/ply/plyVideoPlayer.h"
 
 #include "time/timeProvider.h"
 #include "time/clockTimeProvider.h"
@@ -30,6 +31,7 @@ void printUsage() {
     std::cout << "  videoPlayer [format] [file] <options>" << std::endl;
     std::cout << "Supported formats: " << std::endl;
     std::cout << "  octree - Octree video format" << std::endl;
+    std::cout << "  ply - PLY sequence(with metadata)" << std::endl;
     std::cout << std::endl;
     std::cout << "Supported options: " << std::endl;
     std::cout << "  --record [outdir] - records the entire video to PNG frames" << std::endl;
@@ -61,7 +63,8 @@ int main(int argc, char *argv[]) {
             recordMode = true;
 
             delete timeProvider;
-            timeProvider = new RecordingTimeProvider(30, 30);
+            timeProvider = new RecordingTimeProvider(30.0f, 11);
+            //timeProvider = new RecordingTimeProvider(30.0f, 30);
 
             recordingOutDir = new std::filesystem::path(argv[i+1]);
             std::filesystem::create_directories(*recordingOutDir);
@@ -81,6 +84,8 @@ int main(int argc, char *argv[]) {
 
     if(!strcmp(format, "octree")) {
         player = new OctreeVideoPlayer(timeProvider, std::filesystem::path(file));
+    } else if(!strcmp(format, "ply")) {
+        player = new PlyVideoPlayer(timeProvider, std::filesystem::path(file));
     } else {
         throw std::runtime_error("Invalid format: " + std::string(format));
     }
@@ -95,8 +100,8 @@ int main(int argc, char *argv[]) {
     float yaw = 1.0f;
     float pitch = 0.0f;
 
-    float storedYaw = 0.0f;
-    float storedPitch = 0.0f;
+    float storedYaw = 30.0f;
+    float storedPitch = 30.0f;
 
     float zoom = 1.0f;
 

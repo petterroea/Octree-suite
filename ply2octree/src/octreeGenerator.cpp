@@ -2,7 +2,6 @@
 
 #include <iostream>
 
-
 PointerOctree<std::vector<Point>>* OctreeGenerator::boxSortOuter(int maxLevel) {
     auto octree = new PointerOctree<std::vector<Point>>(std::vector<Point>());
 

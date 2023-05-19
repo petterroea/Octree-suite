@@ -5,7 +5,7 @@
 #include <getopt.h>
 
 #include "octreeGenerator.h"
-#include "pointcloud.h"
+#include <pointcloud/pointcloud.h>
 
 int main(int argc, char** argv) {
     std::cout << "ply2octree by petterroea(2022)" << std::endl;
@@ -62,6 +62,7 @@ int main(int argc, char** argv) {
     try {
         file = parsePlyFile(std::string(inputFilename));
     } catch(char* err) {
+        std::cout << "Error" << std::endl;
         std::cout << err << std::endl;
         return 1;
     }
@@ -73,6 +74,8 @@ int main(int argc, char** argv) {
     auto octree = generator.boxSortOuter(15);
 
     generator.writeToFile(octree, outputFilename);
+
+    std::cout << "Writing to " << outputFilename << std::endl;
 
     delete octree;
     delete file;

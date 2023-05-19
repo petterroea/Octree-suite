@@ -15,7 +15,9 @@ struct Pointcloud {
 
 struct Point {
     glm::vec3 pos;
-    glm::vec3 color;
+    unsigned char red;
+    unsigned char green;
+    unsigned char blue;
 };
 
 class AsyncPointcloudWriter {

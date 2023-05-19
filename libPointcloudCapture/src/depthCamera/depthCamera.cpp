@@ -176,7 +176,6 @@ void DepthCamera::endCaptureThread() {
 void DepthCamera::waitForThreadJoin() {
     pthread_join(this->hThread, NULL);
     std::cout << this->getSerial() << " shutting down" << std::endl;
-    this->postCaptureCleanup();
 }
 
 void DepthCamera::threadEntrypoint(DepthCamera* self) {
@@ -206,6 +205,7 @@ void DepthCamera::processingThread() {
 
         sem_post(&this->frameReceivedSemaphore);
     }
+    this->postCaptureCleanup();
     std::cout << this->getSerial() << " thread stopped" << std::endl;
 }
 

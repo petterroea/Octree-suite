@@ -196,6 +196,11 @@ __global__ void kernel_cudaRender(loadedOctreeType* in, int rootOffset, cudaSurf
 
     int raymarchStack[OCTREE_MAX_DEPTH];
     glm::vec3 centerStack[OCTREE_MAX_DEPTH];
+
+    LayeredOctree<octreeColorType>* layerPointers[OCTREE_MAX_DEPTH];
+    for(int i = 0; i < OCTREE_MAX_DEPTH; i++) {
+        layerPointers[i] = in->getNode(i, 0);
+    }
     
     // Init the top stack entry
     raymarchStack[0] = rootOffset;
@@ -231,7 +236,7 @@ __global__ void kernel_cudaRender(loadedOctreeType* in, int rootOffset, cudaSurf
             for(int i = 0; i < 8; i++) {
                 // Is there a child there?
                 //if(in[raymarchStack[scale]].children[i^flipFlag] != -1) { //FIX
-                if(in->getNode(scale, raymarchStack[scale])->getChildByIdx(i ^ flipFlag) != NO_NODE) {
+                if(layerPointers[scale][raymarchStack[scale]].getChildByIdx(i ^ flipFlag) != NO_NODE) {
                     isLeaf = false;
                     glm::vec3 childOffset = centerStack[scale] + glm::vec3(
                         copysign(childScale, ((i) & 0x1) == 1 ?-1.0f:1.0f),
@@ -257,7 +262,7 @@ __global__ void kernel_cudaRender(loadedOctreeType* in, int rootOffset, cudaSurf
             // TODO can be optimized
             if(isLeaf) {
                 //glm::vec3 colorVec = in[raymarchStack[scale]].color; //FIX
-                glm::vec3 colorVec = *in->getNode(scale, raymarchStack[scale])->getPayload();
+                glm::vec3 colorVec = *layerPointers[scale][raymarchStack[scale]].getPayload();
 
                 float myScale = powf(2.0f, -(scale));
                 
@@ -283,7 +288,7 @@ __global__ void kernel_cudaRender(loadedOctreeType* in, int rootOffset, cudaSurf
                 //color = 0xFF0000 | (scale << 8) | lowestTIdx;
                 int nextIndex = lowestTIdx;
                 //int nextNode = in[raymarchStack[scale]].children[nextIndex^flipFlag]; //FIX
-                int nextNode = in->getNode(scale, raymarchStack[scale])->getChildByIdx(nextIndex ^ flipFlag);
+                int nextNode = layerPointers[scale][raymarchStack[scale]].getChildByIdx(nextIndex ^ flipFlag);
 
                 scale++;
                 centerStack[scale] = centerStack[scale-1] + glm::vec3(
@@ -304,7 +309,7 @@ __global__ void kernel_cudaRender(loadedOctreeType* in, int rootOffset, cudaSurf
 
                 // Settle for this voxel if we are returning from a high scale
                 if(scale==9) {
-                    glm::vec3 colorVec = *in->getNode(scale, raymarchStack[scale])->getPayload();
+                    glm::vec3 colorVec = *layerPointers[scale][raymarchStack[scale]].getPayload();
                     //glm::vec3 colorVec = in[raymarchStack[scale]].color; //FIX
 
                     int r = __float2int_rd(colorVec.x*255.0f);

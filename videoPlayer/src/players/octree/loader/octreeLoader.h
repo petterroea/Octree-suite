@@ -24,10 +24,10 @@ class OctreeLoader {
     LayeredOctreeContainerCuda<octreeColorType>* octreeContainer;
 
     std::thread* loadingThread = nullptr;
+    bool threadRunning = false;
     std::mutex ioMutex;
 
     void startLoadingThread();
-    bool isLoadingThreadRunning();
 
     static void worker(OctreeLoader* me);
 
@@ -36,9 +36,13 @@ public:
     ~OctreeLoader();
 
     loadedOctreeType* getLoadedOctree(OctreeFrameset** frameset);
+    OctreeFrameset* peekLoadedOctreeFrameset();
 
     void requestFrameset(OctreeFrameset* frameset);
 
     OctreeFrameset* getCurrentlyLoadingFrameset();
     OctreeFrameset* getNextLoadingFrameset();
+
+    // Expose some state i guess
+    bool isLoadingThreadRunning();
 };

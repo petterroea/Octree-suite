@@ -23,8 +23,8 @@ OctreeLoader::~OctreeLoader() {
 }
 
 void OctreeLoader::requestFrameset(OctreeFrameset* frameset) {
-    std::cout << "Frameset requested" << std::endl;
-    std::cout << ": From " << frameset->getStartIndex() << " to " << frameset->getEndIndex() << std::endl;
+    this->ioMutex.lock();
+    std::cout << "Frameset requested: from " << frameset->getStartIndex() << " to " << frameset->getEndIndex() << std::endl;
     if(this->requestedFrameset != nullptr) {
         std::cout << "A frame is already requested, queueing this for next" << std::endl;
         this->nextRequestedFrameset = frameset;
@@ -33,36 +33,43 @@ void OctreeLoader::requestFrameset(OctreeFrameset* frameset) {
         this->requestedFrameset = frameset;
     }
     if(!this->isLoadingThreadRunning()) {
-        std::cout << "Starting loading thread" << std::endl;
+        std::cout << "Loading thread not running, starting it." << std::endl;
         this->startLoadingThread();
+    } else {
+        std::cout << "Loading thread is already running, no need to start" << std::endl;
     }
-    std::cout << "Starting loading thread" << std::endl;
+    std::cout << "Done handling frame request" << std::endl;
+    this->ioMutex.unlock();
 }
 
 bool OctreeLoader::isLoadingThreadRunning() { 
-    // TODO wrong
-    // Sorry future me!
-    return this->loadingThread != nullptr;
+    return this->threadRunning;
 }
 
 void OctreeLoader::startLoadingThread() {
     if(this->isLoadingThreadRunning()) { 
         throw std::runtime_error("Tried to start the loading thread twice!");
     }
-    std::cout << "Starting loading ==============================" << std::endl;
+    std::cout << "Starting loading thread ==============================" << std::endl;
+    // If the loading thread already exists it halted, delete it before restarting
+    if(this->loadingThread) {
+        std::cout << "A loadingThread thread already exists, we have to re-start it." << std::endl;
+        this->loadingThread->join();
+        delete this->loadingThread;
+    }
     this->loadingThread = new std::thread(OctreeLoader::worker, this);
+    this->threadRunning = true;
 }
 
 void OctreeLoader::worker(OctreeLoader* me) {
-    std::cout << "Loading thread started" << std::endl;
-
     // Check if there is a frame to load. Should always be true at this point,
     // since the thread only runs if there is a frame to load.
     me->ioMutex.lock();
+    std::cout << "Loading thread started" << std::endl;
     bool hasNextFrameset = me->requestedFrameset != nullptr;
-    me->ioMutex.unlock();
 
     while(hasNextFrameset) {
+        me->ioMutex.unlock();
         std::cout << "-> Loading a frame" << std::endl;
         auto start = std::chrono::high_resolution_clock::now();
         std::cout << "From " << me->requestedFrameset->getStartIndex() << " to " << me->requestedFrameset->getEndIndex() << std::endl;
@@ -191,19 +198,26 @@ void OctreeLoader::worker(OctreeLoader* me) {
         me->requestedFrameset = me->nextRequestedFrameset;
         me->nextRequestedFrameset = nullptr;
         hasNextFrameset = me->requestedFrameset != nullptr;
-
-        me->ioMutex.unlock();
+        // Do not unlock the mutex until we have more work or the thread is dead
     }
+    me->threadRunning = false;
     std::cout << "!!!!!!! Loading thread finished" << std::endl;
+    // Make sure 
+    me->ioMutex.unlock();
 }
 
+OctreeFrameset* OctreeLoader::peekLoadedOctreeFrameset() {
+    return this->loadedFrameset;
+}
 // Returns the currently loaded octree and gives away ownership of it
 loadedOctreeType* OctreeLoader::getLoadedOctree(OctreeFrameset** frameset) {
     std::lock_guard mutex(this->ioMutex);
     auto val = this->loadedOctree;
+    if(this->loadedOctree != nullptr) {
+        *frameset = this->loadedFrameset;
+    }
     this->loadedOctree = nullptr;
 
-    *frameset = this->loadedFrameset;
     return val;
 }
 

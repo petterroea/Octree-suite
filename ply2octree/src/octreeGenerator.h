@@ -6,7 +6,7 @@
 
 #include <math.h>
 
-#include "pointcloud.h"
+#include <pointcloud/pointcloud.h>
 
 #define ADDRESS_OCTREE_BY_VEC3(vec) ADDRESS_OCTREE(signbit(vec.x), signbit(vec.y), signbit(vec.z))
 

@@ -38,13 +38,16 @@ void AsyncPointcloudWriter::writeThread() {
                 auto color = pointcloud.colors[i];
                 if(VALID_POINT(point)) {
                     this->points[vertexCount].pos = point;
-                    this->points[vertexCount].color = color;
+                    // Convert color to RGB char
+                    this->points[vertexCount].red = static_cast<unsigned char>(color.r * 255.0f);
+                    this->points[vertexCount].green = static_cast<unsigned char>(color.g * 255.0f);
+                    this->points[vertexCount].blue = static_cast<unsigned char>(color.b * 255.0f);
                     vertexCount++;
                 }
             }
         }
         char headerBuffer[1000];
-        int headerLen = sprintf(headerBuffer, "ply\nformat binary_little_endian 1.0\nelement vertex %d\nproperty float x\nproperty float y\nproperty float z\nproperty float r\nproperty float g\nproperty float b\nend_header\n", vertexCount);
+        int headerLen = sprintf(headerBuffer, "ply\nformat binary_little_endian 1.0\nelement vertex %d\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nend_header\n", vertexCount);
 
         std::ofstream handle;
 
@@ -55,7 +58,12 @@ void AsyncPointcloudWriter::writeThread() {
         // Write the header
         handle.write(headerBuffer, headerLen);
         // Write the body
-        handle.write((char*)this->points, vertexCount*sizeof(Point));
+        for(int i = 0; i < vertexCount; i++) {
+            handle.write((char*)&this->points[i].pos, sizeof(glm::vec3));
+            handle.write((char*)&this->points[i].red, sizeof(unsigned char));
+            handle.write((char*)&this->points[i].green, sizeof(unsigned char));
+            handle.write((char*)&this->points[i].blue, sizeof(unsigned char));
+        }
 
         this->writeCount++;
         handle.close();
