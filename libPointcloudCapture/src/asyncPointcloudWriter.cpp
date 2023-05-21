@@ -51,7 +51,10 @@ void AsyncPointcloudWriter::writeThread() {
 
         std::ofstream handle;
 
-        std::filesystem::path filename("capture_" + std::to_string(this->writeCount) + ".ply");
+        char fullFilenameBuf[100];
+        snprintf(fullFilenameBuf, sizeof(fullFilenameBuf), "capture_%06d.ply", this->writeCount);
+
+        std::filesystem::path filename(fullFilenameBuf);
         std::filesystem::path fullFilename = this->outputDirectory / filename;
 
         handle.open(fullFilename.string(), std::ios::binary);

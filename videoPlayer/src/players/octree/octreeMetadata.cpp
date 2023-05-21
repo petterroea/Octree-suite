@@ -63,7 +63,6 @@ OctreeFrameset* OctreeMetadata::getFramesetByFrame(int index) const {
             return frame;
         }
     }
-    throw std::runtime_error("Frame not found");
     return nullptr;
 }
 

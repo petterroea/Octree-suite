@@ -69,9 +69,15 @@ void OctreeVideoPlayer::render(int width, int height, glm::mat4 view, glm::mat4 
         auto loadedFrame = this->loader.getLoadedOctree(&this->currentFrameset);
         if(loadedFrame != nullptr) {
             this->currentFrame = loadedFrame;
-            // Ask for the next frame to be loaded immediately
-            OctreeFrameset* nextFrameset = this->metadata.getFramesetByFrame(this->currentFrameset->getEndIndex()+1);
-            this->loader.requestFrameset(nextFrameset);
+            // Check if there is more to render
+            if(this->metadata.getFrameCount() > this->currentFrameset->getEndIndex()+1) {
+                std::cout << "Framecount: " << this->metadata.getFrameCount() << ", end index " << this->currentFrameset->getEndIndex() << std::endl;
+                // Ask for the next frame to be loaded immediately
+                OctreeFrameset* nextFrameset = this->metadata.getFramesetByFrame(this->currentFrameset->getEndIndex()+1);
+                this->loader.requestFrameset(nextFrameset);
+            } else {
+                std::cout << "Reached end of video" << std::endl;
+            }
         } else {
             // Nothing to render, return
             std::cout << "No frame loaded" << std::endl;

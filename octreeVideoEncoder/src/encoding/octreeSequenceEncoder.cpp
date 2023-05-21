@@ -135,7 +135,7 @@ void OctreeSequenceEncoder::encode() {
     }
     {
         rapidjson::Value frameCount;
-        frameCount.SetInt(sequence->getFrameCount());
+        frameCount.SetInt(limit);
 
         rapidjson::Value key;
  

@@ -37,7 +37,7 @@ for COLOR_FACTOR in ${COLOR_IMPORTANCE_FACTORS[@]}; do
     for NEARNESS_FACTOR in ${NEARNESS_FACTORS[@]}; do
         echo "Testing $COLOR_FACTOR $NEARNESS_FACTOR"
         echo "test" | tee "$1/color_${COLOR_FACTOR}_nearness_${NEARNESS_FACTOR}.log"
-        bin/octreeVideoEncoder ~/wave "$2/c_${COLOR_FACTOR}_n_${NEARNESS_FACTOR}" --limit 10 --chunk_size 10 --encoding_threads 25 --chunk_concurrency 1 | tee "$1/color_${COLOR_FACTOR}_nearness_${NEARNESS_FACTOR}.log"
+        bin/octreeVideoEncoder ~/wave "$2/c_${COLOR_FACTOR}_n_${NEARNESS_FACTOR}" --limit 40 --chunk_size 20 --encoding_threads 25 --chunk_concurrency 1 | tee "$1/color_${COLOR_FACTOR}_nearness_${NEARNESS_FACTOR}.log"
         echo "Done encoding, rendering image"
 	mkdir "$3/c_${COLOR_FACTOR}_n_${NEARNESS_FACTOR}"
         bin/OctreeMasterVideoPlayer octree "$2/c_${COLOR_FACTOR}_n_${NEARNESS_FACTOR}" --record "$3/c_${COLOR_FACTOR}_n_${NEARNESS_FACTOR}/" --width 1280 --height 720
