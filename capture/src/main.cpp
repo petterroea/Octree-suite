@@ -12,21 +12,19 @@
 #include <librealsense2/rs.hpp>
 #include <librealsense2/hpp/rs_internal.hpp>
 
-#include <opencv2/highgui.hpp>
-#include <opencv2/core.hpp>
-
 #include "imgui.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_opengl3.h"
 
 #include "main.h"
 
-#include "depthCamera.h"
-#include "pointcloudRenderer.h"
-#include "shaders/pointcloudShader.h"
-#include "octreeCapture.h"
+#include "render/texturedPointcloudRenderer.h"
+#include "depthCamera/depthCamera.h"
+#include "depthCamera/drivers/realsenseDepthCamera.h"
 
-#include "openCVCalibrator.h"
+#include "capture/capturer.h"
+
+#include "capture/openCVCalibrator.h"
 
 void GLAPIENTRY
 MessageCallback( GLenum source,
@@ -93,8 +91,8 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    //glEnable              ( GL_DEBUG_OUTPUT );
-    //glDebugMessageCallback( MessageCallback, 0 );
+    glEnable              ( GL_DEBUG_OUTPUT );
+    glDebugMessageCallback( MessageCallback, 0 );
 
     glEnable(GL_DEPTH_TEST);
 
@@ -106,23 +104,21 @@ int main(int argc, char** argv) {
 
     PointcloudShader* shader = new PointcloudShader();
 
-    std::vector<PointcloudCameraRendererPair*> deviceList;
+    std::vector<CaptureDevice*> deviceList;
     bool first = true;
     for(auto&& dev : ctx.query_devices()) {
         std::cout << "Creating device" << std::endl;
-        DepthCamera* camera = new DepthCamera(dev, first);
-        first = false;
-        PointcloudRenderer* renderer = new PointcloudRenderer(shader);
+        OpenCVCalibrator* calibrator = new OpenCVCalibrator();
+        RealsenseDepthCamera* camera = new RealsenseDepthCamera(calibrator, RenderMode::OPENGL, &dev, first);
+        CaptureDevice* device = new CaptureDevice(camera, calibrator);
 
-        camera->begin();
-        deviceList.push_back(new PointcloudCameraRendererPair {
-            .renderer = renderer,
-            .camera = camera,
-            .capture = true
-        });
+        first = false;
+
+        camera->beginStreaming();
+        deviceList.push_back(device);
     }
 
-    OctreeCapture capture;
+    Capturer capturer(deviceList);
 
     // Render loop
     glClearColor(0.8, 0.8, 1.0, 1.0);
@@ -205,9 +201,6 @@ int main(int argc, char** argv) {
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        // GUI
-        ImGui::Begin("Sensor settings");
-
         glm::mat4 model(1.0f);
         glm::mat4 view = glm::lookAt(
             // Temp bs
@@ -222,54 +215,12 @@ int main(int argc, char** argv) {
             100.0f
         );
 
-        for(auto device : deviceList) {
-            DepthCamera* camera = device->camera;
-            camera->requestFrame();
+        std::cout << "======== FRAME" << std::endl;
+        capturer.displayGui();
+        if(!capturer.isCapturingVideo()) {
+            capturer.getFrame();
+            capturer.render(view, projection);
         }
-
-        for(auto device : deviceList) {
-            DepthCamera* camera = device->camera;
-            // Waits for the frame processing to be complete. Actions performed after this should be thread safe
-            camera->waitForNewFrame();
-
-            ImGui::PushID(camera->getSerial().c_str());
-            ImGui::Text(("RealSense device: " + camera->getSerial()).c_str());
-            PointcloudRenderer* renderer = device->renderer;
-
-            if(device->capture) {
-                camera->uploadTextures();
-                rs2::points pointcloud = camera->getLastPointcloud();
-                renderer->updateData(pointcloud);
-            }
-/*
-            rs2::frameset frame = camera->processFrame();
-
-            camera->drawImmediateGui();
-*/
-
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, camera->getColorTextureHandle());
-            renderer->render(camera->getCalibration(), view, projection);
-
-            ImGui::Checkbox("Capture", &device->capture);
-            camera->drawImmediateGui();
-            if(ImGui::CollapsingHeader("Textures")) {
-                ImGui::Image((void*)(intptr_t)camera->getDepthTextureHandle(), ImVec2(600, 400));
-                ImGui::SameLine();
-                ImGui::Image((void*)(intptr_t)camera->getColorTextureHandle(), ImVec2(600, 400));
-            }
-            ImGui::Separator();
-            ImGui::PopID();
-        }
-
-        if(ImGui::CollapsingHeader("OpenCV")) {
-            if(ImGui::Button("Generate ArUco board")) {
-                cv::Mat boardImage;
-                openCVCalibrationBoard->draw( cv::Size(794*4, 1123*4), boardImage, 1, 1 );
-                cv::imwrite("ArUco.bmp", boardImage);
-            }
-        }
-        ImGui::End();
 
         ImGui::Begin("Performance");
 
@@ -291,8 +242,8 @@ int main(int argc, char** argv) {
 
         ImGui::End();
 
-        capture.displayGui(deviceList);
-        capture.renderHelpLines(view, projection);
+        //capture.displayGui(deviceList);
+        //capture.renderHelpLines(view, projection);
 
 
         ImGui::Render();
@@ -307,12 +258,10 @@ int main(int argc, char** argv) {
     }
 
     for(auto device : deviceList) {
-        device->camera->end();
+        device->getDepthCamera()->endCaptureThread();
     }
     for(auto device : deviceList) {
-        device->camera->waitForThreadJoin();
-        delete device->camera;
-        delete device->renderer;
+        device->getDepthCamera()->waitForThreadJoin();
         delete device;
     }
 

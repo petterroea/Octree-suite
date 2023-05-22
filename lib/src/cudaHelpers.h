@@ -1,0 +1,1 @@
+#define CUDA_CATCH_ERROR {cudaError_t cuda_err_macro = cudaPeekAtLastError(); if(cuda_err_macro) { fprintf(stderr, "CUDA ERROR: %s at %s %d\n", cudaGetErrorString(cuda_err_macro), __FILE__, __LINE__); }}

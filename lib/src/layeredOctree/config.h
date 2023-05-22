@@ -1,0 +1,1 @@
+#define OCTREE_MAX_DEPTH 20
