@@ -3,6 +3,9 @@
 
 #include "videoEncoderRunArgs.h"
 
+#include <dct/dct.h>
+#include <dct/quantization.h>
+
 #include <iostream>
 #include <filesystem>
 
@@ -48,6 +51,8 @@ int main(int argc, char** argv) {
         }
 
     }
+    build_lookup_table();
+    build_quantization_table();
 
     arguments.printSettings();
 

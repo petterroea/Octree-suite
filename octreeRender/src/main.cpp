@@ -127,7 +127,7 @@ int main(int argc, char** argv) {
 
     ImGuiIO& imguiIo = ImGui::GetIO();
 
-    PointerOctree<glm::vec3>* octree = loadOctree(octreePath.string());
+    PointerOctree<glm::vec3>* octree = loadOctree(octreePath.string(), true);
 
     int renderMode = 3;
 

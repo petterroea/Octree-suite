@@ -8,6 +8,10 @@
 #define OCTREE_SIZE 8
 #define ADDRESS_OCTREE(x, y, z) (x & 1) | ((y & 1) << 1) | ((z & 1) << 2)
 
+#define OCTREE_EXTRACT_X(idx) (idx & 1)
+#define OCTREE_EXTRACT_Y(idx) ((idx >> 1) & 1)
+#define OCTREE_EXTRACT_Z(idx) ((idx >> 2) & 1)
+
 template <typename T, typename C>
 class Octree {
 protected:

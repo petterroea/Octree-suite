@@ -49,17 +49,39 @@ void EncodingSequence::encode() {
         int rootIdx = layeredContainer.addOctree(tree);
         //std::cout << "Installed octree with rootidx " << rootIdx << std::endl;
 
-        this->populateHashmap(0, rootIdx, layeredContainer, 8);
+        //this->populateHashmap(0, rootIdx, layeredContainer, 8);
     }
 
-    // TODO improve
-    // We do not deduplicate the first layers
-    for(int i = 3; i < OCTREE_MAX_DEPTH; i++) {
-        std::cout << "------------------------------Deduplicating " << i << std::endl;
-        this->deduplicator = new DeDuplicator(this->hashmaps[i], layeredContainer, i, this->args);
-        this->deduplicator->run();
-        delete this->deduplicator; //TODO
+    // Determine the maximum populated layer
+    int biggest = 0;
+    int biggestIdx = 0;
+    for(int i = 0; i < OCTREE_MAX_DEPTH; i++) {
+        int layerSize = layeredContainer.getLayerSize(i);
+        std::cout << "Layer " << i << ", size " << layerSize << std::endl;
+        if(layerSize > biggest) {
+            biggestIdx = i;
+            biggest = layerSize;
+        }
     }
+    std::cout << "Biggest layer: " << biggestIdx << " ( " << biggest << " nodes )" << std::endl;
+
+    int yLayer = biggestIdx - 3;
+    int uvLayer = biggestIdx - 4;
+    while(yLayer > 0) {
+        this->dctContainer.addYLayer(yLayer, layeredContainer.getLayerSize(yLayer));
+        std::cout << "Y at: " << yLayer<< " ( " << layeredContainer.getLayerSize(yLayer) << " nodes )" << std::endl;
+        yLayer -= 3;
+    }
+
+    while(uvLayer > 0) {
+        this->dctContainer.addUVLayer(uvLayer, layeredContainer.getLayerSize(uvLayer));
+        std::cout << "uv at: " << uvLayer<< " ( " << layeredContainer.getLayerSize(uvLayer) << " nodes )" << std::endl;
+        uvLayer -= 3;
+    }
+
+    // Encode colors
+    std::cout << "Encoding colors" << std::endl;
+    this->dctContainer.build(&layeredContainer, this->args->getEncodingThreadCount());
 
     // Write the tree to disk
     this->writeToDisk(layeredContainer, this->fullPath);
@@ -72,6 +94,7 @@ void EncodingSequence::encode() {
     delete[] octrees;
 }
 
+/*
 void EncodingSequence::populateHashmap(int depth, int idx, LayeredOctreeProcessingContainer<octreeColorType>& octreeContainer, int max_depth) {
     if(max_depth == depth) {
         return;
@@ -84,7 +107,7 @@ void EncodingSequence::populateHashmap(int depth, int idx, LayeredOctreeProcessi
             this->populateHashmap(depth+1, child, octreeContainer, max_depth);
         }
     }
-}
+}*/
 void EncodingSequence::writeToDisk(LayeredOctreeProcessingContainer<octreeColorType>& trees, std::string filename) {
     //Set up vectors for storing the output nodes
     /*
@@ -280,6 +303,9 @@ void EncodingSequence::writeToDisk(LayeredOctreeProcessingContainer<octreeColorT
             std::cout << "Average child count: " << (measureChildCount / childMeasurements) << "( total " << measureChildCount << " )" << std::endl;
         }
     }
+    // Write color data
+    std::cout << "Writing color data..." << std::endl;
+    this->dctContainer.serialize(&file);
 
     std::cout << "Done, wrote to " << filename << std::endl;
     int nodesTrimmed = totalPreTrimCount - postTrimCount;

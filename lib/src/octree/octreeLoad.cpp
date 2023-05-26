@@ -3,7 +3,7 @@
 #include <iostream>
 #include <fstream>
 
-PointerOctree<glm::vec3>* getChild(char* data, unsigned int offset) {
+PointerOctree<glm::vec3>* getChild(char* data, unsigned int offset, bool normalized) {
     int offsets[8];
 
     char childCount = data[offset];
@@ -11,10 +11,11 @@ PointerOctree<glm::vec3>* getChild(char* data, unsigned int offset) {
     unsigned char r = data[offset+2];
     unsigned char g = data[offset+3];
     unsigned char b = data[offset+4];
+    float normalizedAmount = normalized ? 255.0f : 1.0f;
     glm::vec3 color = glm::vec3(
-        static_cast<float>(r)/255.0f,
-        static_cast<float>(g)/255.0f,
-        static_cast<float>(b)/255.0f
+        static_cast<float>(r)/normalizedAmount,
+        static_cast<float>(g)/normalizedAmount,
+        static_cast<float>(b)/normalizedAmount
     );
     int* offsetArrayPtr = (int*)(&data[offset+5]);
 
@@ -24,14 +25,14 @@ PointerOctree<glm::vec3>* getChild(char* data, unsigned int offset) {
     for(int i = 7; i >= 0; i--) {
         // Is there a child here?
         if(childFlags & 1 == 1) {
-            octree->setChild(getChild(data, offsetArrayPtr[childCount-1-offsetCount++]), i);
+            octree->setChild(getChild(data, offsetArrayPtr[childCount-1-offsetCount++], normalized), i);
         }
         childFlags = childFlags >> 1;
     }
     return octree;
 }
 
-PointerOctree<glm::vec3>* loadOctree(std::string filename) {
+PointerOctree<glm::vec3>* loadOctree(std::string filename, bool normalized) {
     std::ifstream reader(filename, std::ios::binary);
 
     unsigned int magic;
@@ -59,7 +60,7 @@ PointerOctree<glm::vec3>* loadOctree(std::string filename) {
     reader.seekg(9);
     reader.read(fileBuffer, fileSize);
 
-    PointerOctree<glm::vec3>* root = getChild(fileBuffer, rootOffset);
+    PointerOctree<glm::vec3>* root = getChild(fileBuffer, rootOffset, normalized);
     reader.close();
 
     delete[] fileBuffer;

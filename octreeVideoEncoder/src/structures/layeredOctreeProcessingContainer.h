@@ -1,4 +1,5 @@
 #pragma once
+
 #include <layeredOctree/layeredOctreeContainerVector.h>
 
 #include "octreeProcessingPayload.h"
@@ -22,7 +23,7 @@ int LayeredOctreeProcessingContainer<T>::installNode(PointerOctree<T>* node, int
         std::cout << "WARNING: Unable to install entire octree due to the tree being too deep" << std::endl;
         throw "";
     }
-    auto payload(*node->getPayload());
+    OctreeProcessingPayload<octreeColorType> payload(*node->getPayload());
     auto chunked = LayeredOctree<OctreeProcessingPayload<T>>(payload);
     for(int i = 0; i < 8; i++) {
         auto child = node->getChildByIdx(i);
