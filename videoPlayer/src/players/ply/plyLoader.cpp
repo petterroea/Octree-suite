@@ -10,7 +10,8 @@ void PlyLoader::startLoadingThread() {
         throw std::runtime_error("Tried to start thread, but thread is already running");
     }
     if(this->loadingThread) {
-        std::cout << "Loading thread is already running, quitting" << std::endl;
+        std::cout << "Loading thread is already running, quitting it..." << std::endl;
+        this->shouldThreadRun = false;
         this->loadingThread->join();
         delete this->loadingThread;
     }
@@ -46,7 +47,9 @@ void PlyLoader::workerInner() {
         std::cout << "Loading " << currentFrame << " from " << this->metadata->getPath() << std::endl;
         this->mutex.unlock();
         // Determine the filename
-        std::filesystem::path filePath = this->metadata->getPath() / std::filesystem::path("capture_" + std::to_string(currentFrame) + ".ply");
+        char filename[256];
+        sprintf(filename, "capture_%06d.ply", currentFrame);
+        std::filesystem::path filePath = this->metadata->getPath() / std::filesystem::path(filename);
         if (!std::filesystem::exists(filePath)) {
             throw std::runtime_error("Ply file does not exist: " + filePath.string());
         }
@@ -111,6 +114,7 @@ Pointcloud* PlyLoader::getNextFrame(int* loadedFrameNo) {
         }
     }
     if(this->loadedPointclouds.empty()) {
+        std::cout << "No loaded data available" << std::endl;
         return nullptr;
     }
     auto value = this->loadedPointclouds.front();

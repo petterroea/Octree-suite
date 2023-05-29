@@ -3,12 +3,16 @@
 #include <iostream>
 #include <exception>
 #include <filesystem>
+#include <mutex>
+
+std::mutex pointcloudMutex;
 
 Pointcloud::Pointcloud(glm::vec3* vertices, glm::vec3* colors, int pointCount): vertices(vertices), colors(colors), pointCount(pointCount) {
 
 }
 
 Pointcloud::~Pointcloud() {
+    std::lock_guard<std::mutex> lock(pointcloudMutex);
     delete[] this->vertices;
     delete[] this->colors;
 }
@@ -32,8 +36,10 @@ PlyType determinePlyType(std::string line) {
 }
 
 Pointcloud* parseLittleEndianBinaryPly(PlyMapping& mapping, std::ifstream& handle, int count) {
+    pointcloudMutex.lock();
     glm::vec3* points = new glm::vec3[count];
     glm::vec3* colors = new glm::vec3[count];
+    pointcloudMutex.unlock();
     unsigned char* values = new unsigned char[mapping.size];
     std::cout << "Parsing " << count << " ply values... (ply size " << mapping.size << ", number: " << count << " )" << std::endl;
     for(int i = 0; i < count; i++) {
@@ -88,13 +94,22 @@ Pointcloud* parsePlyFile(std::string filename) {
     std::string ucharName("uchar ");
     std::string property("property ");
     int curIdx = 0;
+    bool unsupportedElement = false;
     // Parse the header until we reach end_header
     while(true) {
         getline(handle, line);
         if(line.rfind(property) != 0) {
             if(line.rfind(element) == 0) {
-                std::cout << "More than one element - unsupported" << std::endl;
-                throw std::runtime_error("More than one element - unsupported file");
+                // The element better be empty
+                auto unwanted_element_line = line.substr(line.rfind(" ") + 1);
+                int elementCount = std::atoi(unwanted_element_line.c_str());
+                std::cout << "element line: " << unwanted_element_line << std::endl;
+                if(elementCount != 0) {
+                    std::cout << "More than one element - unsupported" << std::endl;
+                    throw std::runtime_error("More than one element - unsupported file");
+                } else {
+                    unsupportedElement = true;
+                }
             }
             else if(line == "end_header") {
                 break;
@@ -102,6 +117,8 @@ Pointcloud* parsePlyFile(std::string filename) {
                 std::cout << "Unsupported line" << std::endl;
                 throw std::runtime_error("Unsupported line");
             }
+        } else if(unsupportedElement) {
+            // Ignore
         } else {
             line = line.substr(property.length());
             if(line.rfind(floatName) != 0 && line.rfind(ucharName) != 0) {
@@ -141,10 +158,10 @@ Pointcloud* parsePlyFile(std::string filename) {
     }
 
     if(!mapping.valid()) {
-        throw "Invalid mapping";
+        throw std::runtime_error("Invalid mapping");
     }
     if(type != PlyType::BINARY_LITTLE_ENDIAN) {
-        throw "Unsupported PLY file";
+        throw std::runtime_error("Unsupported PLY file");
     } else {
         return parseLittleEndianBinaryPly(mapping, handle, elementCount);
     }
