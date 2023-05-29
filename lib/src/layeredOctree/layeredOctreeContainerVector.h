@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <vector>
+#include <exception>
 
 #include "../octree/pointerOctree.h"
 #include "layeredOctree.h"
@@ -36,6 +37,9 @@ LayeredOctreeContainerVector<T>::LayeredOctreeContainerVector() {
 
 template <typename T>
 LayeredOctree<T>* LayeredOctreeContainerVector<T>::getNode(int layer, int idx) {
+    if(idx > this->layers[layer].size()) {
+        throw std::runtime_error("IDX too big: " + std::to_string(idx) + " > " + std::to_string(this->layers[layer].size()));
+    }
     return &this->layers[layer][idx];
 }
 

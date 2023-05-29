@@ -3,4 +3,4 @@
 
 #include "pointerOctree.h"
 
-PointerOctree<glm::vec3>* loadOctree(std::string filename);
+PointerOctree<glm::vec3>* loadOctree(std::string filename, bool normalized);
