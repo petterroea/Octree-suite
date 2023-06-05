@@ -5,6 +5,8 @@
 #include <vector>
 #include <chrono>
 
+#include <zlib.h>
+
 #include <rapidjson/document.h>
 #include <rapidjson/istreamwrapper.h>
 
@@ -110,66 +112,7 @@ void OctreeLoader::worker(OctreeLoader* me) {
 
         // Load each layer
         for(int i = layerSizes.size()-1; i >= 0; i--) {
-            std::cout << "Layer " << i << " size " << layerSizes[i] << std::endl;
-            int layerSize = layerSizes[i];
-
-            auto layerPtr = container->getNode(i, 0);
-            if(!layerPtr) {
-                throw std::runtime_error("Failed to get layerPtr for layer " + std::to_string(i));
-            }
-            //For each node in the layer, read it and unpack it
-            for(int n = 0; n < layerSizes[i]; n++) {
-                uint8_t r, g, b;
-
-                uint8_t childCount, childFlags, leafFlags;
-
-                char cookie;
-                file.read(reinterpret_cast<char*>(&cookie), sizeof(char));
-                if(cookie != 0x69) {
-                    throw std::runtime_error("Cookie was incorrect, we are not aligned");
-                }
-
-                file.read(reinterpret_cast<char*>(&r), sizeof(uint8_t));
-                file.read(reinterpret_cast<char*>(&g), sizeof(uint8_t));
-                file.read(reinterpret_cast<char*>(&b), sizeof(uint8_t));
-
-                file.read(reinterpret_cast<char*>(&childCount), sizeof(uint8_t));
-                file.read(reinterpret_cast<char*>(&childFlags), sizeof(uint8_t));
-                file.read(reinterpret_cast<char*>(&leafFlags), sizeof(uint8_t));
-
-                *layerPtr = LayeredOctree<octreeColorType>(glm::vec3(
-                    static_cast<float>(r)/255.0f, 
-                    static_cast<float>(g)/255.0f, 
-                    static_cast<float>(b)/255.0f
-                ));
-
-                layerPtr->setChildFlags(childFlags);
-                layerPtr->setLeafFlags(leafFlags);
-
-                assert(childCount <= 8);
-
-                // Load children
-                for(int c = 0; c < OCTREE_SIZE; c++) {
-                    if((childFlags >> c) & 1) {
-                        layer_ptr_type childPtr;
-                        file.read(reinterpret_cast<char*>(&childPtr), sizeof(layer_ptr_type));
-                        if(childPtr > layerSizes[i+1]) {
-                            throw std::runtime_error("Invalid octree: node " + 
-                                std::to_string(n) + 
-                                " has child ptr " + 
-                                std::to_string(childPtr) + 
-                                ", which is larger than " + 
-                                std::to_string(layerSizes[i+1])
-                            );
-                        }
-
-                        layerPtr->setChild(childPtr, c, (leafFlags >> c & 1));
-                    }
-                }
-                layerPtr++;
-            }
-            // Read the layer
-            //file.read((char*)layer, layerSize * sizeof(LayeredOctree<octreeColorType>));
+            me->loadLayer(i, layerSizes, container, file);
         }
 
         file.close();
@@ -205,6 +148,60 @@ void OctreeLoader::worker(OctreeLoader* me) {
     // Make sure 
     me->ioMutex.unlock();
 }
+void OctreeLoader::loadLayer(int layer, std::vector<int>& layerSizes, LayeredOctreeContainerStatic<octreeColorType>* container, std::ifstream& file) {
+    int layerSize = layerSizes[layer];
+    std::cout << "Layer " << layer << " size " << layerSize << std::endl;
+
+    auto layerPtr = container->getNode(layer, 0);
+    if(!layerPtr) {
+        throw std::runtime_error("Failed to get layerPtr for layer " + std::to_string(layer));
+    }
+    //For each node in the layer, read it and unpack it
+    for(int n = 0; n < layerSize; n++) {
+        uint8_t r, g, b;
+
+        uint8_t childCount, childFlags, leafFlags;
+
+        file.read(reinterpret_cast<char*>(&r), sizeof(uint8_t));
+        file.read(reinterpret_cast<char*>(&g), sizeof(uint8_t));
+        file.read(reinterpret_cast<char*>(&b), sizeof(uint8_t));
+
+        file.read(reinterpret_cast<char*>(&childCount), sizeof(uint8_t));
+        file.read(reinterpret_cast<char*>(&leafFlags), sizeof(uint8_t));
+
+        *layerPtr = LayeredOctree<octreeColorType>(glm::vec3(
+            static_cast<float>(r)/255.0f, 
+            static_cast<float>(g)/255.0f, 
+            static_cast<float>(b)/255.0f
+        ));
+
+        layerPtr->setLeafFlags(leafFlags);
+
+        assert(childCount <= 8);
+
+        // Load children
+        for(int c = 0; c < OCTREE_SIZE; c++) {
+            if((childFlags >> c) & 1) {
+                layer_ptr_type childPtr;
+                file.read(reinterpret_cast<char*>(&childPtr), sizeof(layer_ptr_type));
+                if(childPtr > layerSizes[layer+1]) {
+                    throw std::runtime_error("Invalid octree: node " + 
+                        std::to_string(n) + 
+                        " has child ptr " + 
+                        std::to_string(childPtr) + 
+                        ", which is larger than " + 
+                        std::to_string(layerSizes[layer+1])
+                    );
+                }
+
+                layerPtr->setChild(childPtr, c, (leafFlags >> c & 1));
+            }
+        }
+        layerPtr++;
+    }
+    // Read the layer
+    //file.read((char*)layer, layerSize * sizeof(LayeredOctree<octreeColorType>));
+}
 
 OctreeFrameset* OctreeLoader::peekLoadedOctreeFrameset() {
     return this->loadedFrameset;
@@ -228,4 +225,31 @@ OctreeFrameset* OctreeLoader::getCurrentlyLoadingFrameset() {
 
 OctreeFrameset* OctreeLoader::getNextLoadingFrameset() {
     return this->nextRequestedFrameset;
+}
+
+unsigned char* OctreeLoader::readCompressed(int* bufferSize, std::ifstream& file) {
+    file.read(reinterpret_cast<char*> (bufferSize), sizeof(*bufferSize));
+    unsigned long originalSize = *bufferSize;
+    int compressedSize = 0;
+    file.read(reinterpret_cast<char*> (&compressedSize), sizeof(compressedSize));
+    unsigned char* buffer = new unsigned char[*bufferSize];
+    
+    unsigned char* compressedBuffer = new unsigned char[compressedSize];
+    file.read(reinterpret_cast<char*>(compressedBuffer), compressedSize);
+
+    int z_result = uncompress(buffer, &originalSize, compressedBuffer, compressedSize);
+
+    if(z_result != Z_OK) {
+        if(z_result == Z_MEM_ERROR ) {
+            throw std::runtime_error("Zlib out of memory");
+        } else if(z_result == Z_BUF_ERROR) {
+            throw std::runtime_error("Zlib error: too small output buffer: " + std::to_string(originalSize));
+        }
+        throw std::runtime_error("Failed to zlib compress: " + std::to_string(z_result));
+    }
+
+    std::cout << "Read " << compressedSize << " bytes, inflated to " << originalSize << std::endl;
+    *bufferSize = originalSize;
+
+    return buffer;
 }

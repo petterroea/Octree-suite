@@ -31,6 +31,8 @@ class OctreeLoader {
 
     static void worker(OctreeLoader* me);
 
+    unsigned char* readCompressed(int* bufferLength, std::ifstream& file);
+    void loadLayer(int layer, std::vector<int>& layerSizes, LayeredOctreeContainerStatic<octreeColorType>* container, std::ifstream& file);
 public:
     OctreeLoader(LayeredOctreeAllocator* allocator);
     ~OctreeLoader();

@@ -36,8 +36,9 @@ PointerOctree<octreeColorType>* OctreeSequence::getOctree(int frame) {
     if(frame > this->frameCount || frame < 0) {
         throw std::invalid_argument("Invalid frame number");
     }
-    std::filesystem::path fileName("capture_" + std::to_string(frame) + ".oct");
-    std::filesystem::path fullPath = this->sequenceFolder / fileName;
+    char filename[256];
+    sprintf(filename, "capture_%06d.oct", frame);
+    std::filesystem::path fullPath = this->sequenceFolder / std::filesystem::path(filename);
 
     return loadOctree(fullPath.string());
 }

@@ -24,7 +24,10 @@ option(BUILD_OCTREE_VIDEO_ENCODER "Build octreeVideoEncoder" ON)
 include("./Imgui.cmake")
 
 add_subdirectory("lib")
-add_subdirectory("libPointcloudCapture")
+
+if(BUILD_CAPTURE)
+    add_subdirectory("libPointcloudCapture")
+endif()
 
 if(BUILD_RENDER)
     add_subdirectory("octreeRender")

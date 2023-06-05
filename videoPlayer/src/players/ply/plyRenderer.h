@@ -1,7 +1,7 @@
 #pragma once
 
 #include <GL/glew.h>
-#include <librealsense2/rs.hpp>
+//#include <librealsense2/rs.hpp>
 #include <glm/mat4x4.hpp>
 
 #include "shaders/pointcloudShader.h"

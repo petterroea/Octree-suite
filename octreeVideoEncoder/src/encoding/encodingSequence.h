@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <filesystem>
+#include <fstream>
 
 #include "../octreeSequence.h"
 #include "octreeHashmap.h"
@@ -29,6 +30,8 @@ class EncodingSequence {
 
     void populateHashmap(int depth, int roodIdx, LayeredOctreeProcessingContainer<octreeColorType>& octreeContainer, int max_depth);
     void writeToDisk(LayeredOctreeProcessingContainer<octreeColorType>& trees, std::string filename);
+    void writeLayerToDisk(LayeredOctreeProcessingContainer<octreeColorType>& tree, std::ofstream& file, int i, int nodeCount, int childPtrCount);
+    int write_compressed(unsigned char* data, int length, std::ofstream& file);
 public:
     EncodingSequence(OctreeSequence* sequence, int from, int to, std::string fullPath, VideoEncoderRunArgs* args);
     ~EncodingSequence();

@@ -19,6 +19,9 @@ link_libraries(${GLEW_LIBRARIES})
 find_package(CUDA REQUIRED)
 message(STATUS "cuda_include=${CUDA_INCLUDE_DIRS}")
 
+# ZLIB
+find_package(ZLIB)
+
 # Target
 file(GLOB_RECURSE DIR_OCTREE_VIDEO_PLAYER_SRCS src/kernels/*.cu src/**/*.cpp src/*.cpp)
 add_executable(${OCTREE_VIDEO_PLAYER_BINARY_NAME} ${DIR_OCTREE_VIDEO_PLAYER_SRCS} ${IMGUI_SOURCE_FILES})
@@ -43,3 +46,4 @@ target_link_libraries(${OCTREE_VIDEO_PLAYER_BINARY_NAME} ${SDL2_LIBRARIES})
 target_link_libraries(${OCTREE_VIDEO_PLAYER_BINARY_NAME} GL)
 
 target_link_libraries(${OCTREE_VIDEO_PLAYER_BINARY_NAME} OctreeMasterLib)
+target_link_libraries(${OCTREE_VIDEO_PLAYER_BINARY_NAME} ZLIB::ZLIB)
