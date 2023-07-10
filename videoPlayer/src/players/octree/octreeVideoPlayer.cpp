@@ -160,7 +160,7 @@ float OctreeVideoPlayer::getVideoLength() {
 }
 
 bool OctreeVideoPlayer::isBuffering() {
-    bool buffering = this->currentFrame == nullptr;
+    bool buffering = this->currentFrame == nullptr || this->getCurrentFrame() > this->currentFrameset->getEndIndex();
     std::cout << "Buffering? " << (buffering ? "yes" : "no") << std::endl;
     return buffering;
 }

@@ -32,6 +32,8 @@ target_include_directories(${CAPTURE_TO_PLY_BINARY_NAME} PUBLIC "../lib/src")
 target_include_directories(${CAPTURE_TO_PLY_BINARY_NAME} PUBLIC "../rapidjson/include")
 target_include_directories(${CAPTURE_TO_PLY_BINARY_NAME} PUBLIC "../Turbo-Run-Length-Encoding/include")
 
+target_include_directories(${CAPTURE_TO_PLY_BINARY_NAME} PUBLIC "../stb")
+
 # Linking
 target_link_libraries(${CAPTURE_TO_PLY_BINARY_NAME} ${CUDA_LIBRARIES})
 target_link_libraries(${CAPTURE_TO_PLY_BINARY_NAME} OctreeMasterLib)

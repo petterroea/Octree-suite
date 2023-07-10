@@ -31,8 +31,10 @@ class OctreeLoader {
 
     static void worker(OctreeLoader* me);
 
+    unsigned char* readCompressedImage(int* bufferLength, std::ifstream& file);
     unsigned char* readCompressed(int* bufferLength, std::ifstream& file);
     void loadLayer(int layer, std::vector<int>& layerSizes, LayeredOctreeContainerStatic<octreeColorType>* container, std::ifstream& file);
+    void calculateLeafFlags(int layer, int index, LayeredOctreeContainerStatic<octreeColorType>* container);
 public:
     OctreeLoader(LayeredOctreeAllocator* allocator);
     ~OctreeLoader();

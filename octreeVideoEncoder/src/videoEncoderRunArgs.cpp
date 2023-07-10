@@ -17,6 +17,13 @@ void VideoEncoderRunArgs::printSettings() const {
     std::cout << "" << std::endl;
     std::cout << " Nearness factor: " << this->getTreeNearnessFactor() << std::endl;
     std::cout << " Color importance: " << this->getColorImportanceFactor() << std::endl;
+    std::cout << "" << std::endl;
+    std::cout << " Quantization start: " << this->getQuantizationStart() << std::endl;
+    std::cout << " Quantization end: " << this->getQuantizationEnd() << std::endl;
+    std::cout << "" << std::endl;
+    std::cout << " Should skip reduction? " << (this->getShouldSkipReduction() ? "yes" : "no") << std::endl;
+    std::cout << "" << std::endl;
+    std::cout << " Stats output: " << this->getCompressionStatsOutput() << std::endl;
 }
 
 int VideoEncoderRunArgs::getFrameLimit() const { 
@@ -60,4 +67,35 @@ int VideoEncoderRunArgs::getEncodingChunkSize() const {
 }
 void VideoEncoderRunArgs::setEncodingChunkSize(int chunksize) {
     this->encodingChunkSize = chunksize;
+}
+
+int VideoEncoderRunArgs::getQuantizationStart() const {
+    return this->quantizationStart;
+}
+
+void VideoEncoderRunArgs::setQuantizationStart(int quantizationStart) {
+    this->quantizationStart = quantizationStart;
+}
+
+int VideoEncoderRunArgs::getQuantizationEnd() const {
+    return this->quantizationEnd;
+}
+
+void VideoEncoderRunArgs::setQuantizationEnd(int quantizationEnd) {
+    this->quantizationEnd = quantizationEnd;
+}
+
+bool VideoEncoderRunArgs::getShouldSkipReduction() const {
+    return this->shouldSkipReduction;
+}
+void VideoEncoderRunArgs::setShouldSkipReduction(bool shouldSkipReduction) {
+    this->shouldSkipReduction = shouldSkipReduction;
+}
+
+char* VideoEncoderRunArgs::getCompressionStatsOutput() const {
+    return this->compressionStatsOutput;
+}
+
+void VideoEncoderRunArgs::setCompressionStatsOutput(char* compressionStatsOutput) {
+    this->compressionStatsOutput = compressionStatsOutput;
 }

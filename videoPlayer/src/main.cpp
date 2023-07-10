@@ -19,6 +19,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
+#include <dct2d/quantization.h>
+#include <dct2d/dct.h>
+
 #include "imgui.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_opengl3.h"
@@ -46,6 +49,8 @@ int main(int argc, char *argv[]) {
         printUsage();
         return 1;
     }
+
+    build_lookup_table();
 
     auto format = argv[1];
     auto file = argv[2];
@@ -88,6 +93,14 @@ int main(int argc, char *argv[]) {
         player = new PlyVideoPlayer(timeProvider, std::filesystem::path(file));
     } else {
         throw std::runtime_error("Invalid format: " + std::string(format));
+    }
+
+    VideoMetadata metadata;
+    player->getVideoMetadata(&metadata);
+
+    if(recordMode) {
+        std::cout << "Record mode: Setting frame count to " << metadata.frameCount << std::endl;
+        reinterpret_cast<RecordingTimeProvider*>(timeProvider)->setFrameCount(metadata.frameCount);
     }
 
     // Render loop

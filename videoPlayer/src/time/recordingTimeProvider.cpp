@@ -19,6 +19,10 @@ void RecordingTimeProvider::renderControls() {
     // Do nothing
 }
 
+void RecordingTimeProvider::setFrameCount(int newFrameCount) {
+    this->frameCount = newFrameCount;
+}
+
 void RecordingTimeProvider::onFrameComplete() {
     this->frameCounter++;
     float time = this->getTime();

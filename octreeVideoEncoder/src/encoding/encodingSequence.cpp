@@ -12,9 +12,50 @@
 
 #include <glm/vec3.hpp>
 
+#include <dct2d/yuv.h>
+#include <dct2d/dct.h>
+#include <dct2d/quantization.h>
+
 #include "../config.h"
 
-int EncodingSequence::write_compressed(unsigned char* data, int length, std::ofstream& file) {
+void EncodingSequence::write_color_compressed(unsigned char* colors, int length, std::ofstream& file, std::ofstream* stats_file) {
+    int dctUnits = length / (DCT_SIZE*DCT_SIZE);
+    file.write(reinterpret_cast<const char*>(&length), sizeof(length));
+    file.write(reinterpret_cast<const char*>(&dctUnits), sizeof(dctUnits));
+    if(stats_file) {
+        *stats_file << "color->,";
+    }
+
+    std::cout << "Writing color compress of size " << dctUnits << " units" << std::endl;
+
+    if(dctUnits != 0) {
+        int* quantizationArray = new int[dctUnits*DCT_SIZE*DCT_SIZE];
+        //DCT encode and write the units
+        float dctArray[DCT_SIZE*DCT_SIZE];
+        for(int i = 0; i < dctUnits; i++) {
+            unsigned char* data = &colors[i*DCT_SIZE*DCT_SIZE];
+            do_dct(data, dctArray);
+            do_quantization(dctArray, &quantizationArray[i*DCT_SIZE*DCT_SIZE]);
+        }
+        this->write_compressed((unsigned char*)quantizationArray, dctUnits*DCT_SIZE*DCT_SIZE*sizeof(int), file, stats_file);
+        delete[] quantizationArray;
+    }
+    if(stats_file) {
+        *stats_file << "<-,";
+    }
+
+    // Write remaining data that couldn't be DCT compressed
+    int remaining = length - dctUnits * DCT_SIZE * DCT_SIZE;
+    if(remaining != 0) {
+        file.write(reinterpret_cast<const char*>(&colors[dctUnits * 8]), remaining);
+    }
+}
+
+int EncodingSequence::write_compressed(unsigned char* data, int length, std::ofstream& file, std::ofstream* stats_file) {
+    //Write a test cookie
+    unsigned char cookie = 0x69;
+    file.write(reinterpret_cast<const char*>(&cookie), sizeof(cookie));
+
     unsigned long outBufferSize = static_cast<unsigned long>(static_cast<float>(length)*1.1f + 21);
     unsigned char* compressed = new unsigned char[outBufferSize];
     unsigned long written_bytes = outBufferSize;
@@ -34,9 +75,15 @@ int EncodingSequence::write_compressed(unsigned char* data, int length, std::ofs
     file.write(reinterpret_cast<const char*>(&written_bytes), sizeof(int));
     file.write(reinterpret_cast<const char*>(compressed), written_bytes);
 
+    cookie = 0x68;
+    file.write(reinterpret_cast<const char*>(&cookie), sizeof(cookie));
+
     float percentage = (static_cast<float>(written_bytes) / static_cast<float>(length)) * 100.0f;
 
     std::cout << "Wrote compressed, " << percentage << "% of original. ( " << length << " -> " << written_bytes << " )" << std::endl;
+    if(stats_file) {
+        *stats_file << length << "," << written_bytes << "," << percentage << ",";
+    }
 
     delete[] compressed;
 
@@ -85,11 +132,13 @@ void EncodingSequence::encode() {
 
     // TODO improve
     // We do not deduplicate the first layers
-    for(int i = 3; i < OCTREE_MAX_DEPTH; i++) {
-        std::cout << "------------------------------Deduplicating " << i << std::endl;
-        this->deduplicator = new DeDuplicator(this->hashmaps[i], layeredContainer, i, this->args);
-        this->deduplicator->run();
-        delete this->deduplicator; //TODO
+    if(!this->args->getShouldSkipReduction()) {
+        for(int i = 3; i < OCTREE_MAX_DEPTH; i++) {
+            std::cout << "------------------------------Deduplicating " << i << std::endl;
+            this->deduplicator = new DeDuplicator(this->hashmaps[i], layeredContainer, i, this->args);
+            this->deduplicator->run();
+            delete this->deduplicator; //TODO
+        }
     }
 
     // Write the tree to disk
@@ -176,6 +225,13 @@ void EncodingSequence::writeToDisk(LayeredOctreeProcessingContainer<octreeColorT
     file.write(reinterpret_cast<char*>(&max_tree_depth), sizeof(int));
     file.write(reinterpret_cast<char*>(&fileHeaderSize), sizeof(int));
 
+    unsigned char quantization_start = this->args->getQuantizationStart();
+    unsigned char quantization_end = this->args->getQuantizationEnd();
+
+    build_quantization_lookup_table(quantization_start, quantization_end);
+    file.write(reinterpret_cast<char*>(&quantization_start), sizeof(quantization_start));
+    file.write(reinterpret_cast<char*>(&quantization_end), sizeof(quantization_end));
+
     int currentLayerOffset = 0;
     for(int i = 0; i < OCTREE_MAX_DEPTH; i++) {
         //file.write(reinterpret_cast<char*>(&currentLayerOffset), sizeof(int));
@@ -184,11 +240,26 @@ void EncodingSequence::writeToDisk(LayeredOctreeProcessingContainer<octreeColorT
         currentLayerOffset += nodeSize*nodeCount[i] + childPtrCount[i] * sizeof(layer_ptr_type);
     }
 
+    // Prepare statistics file if any
+    std::ofstream* stats_file = nullptr;
+    if(this->args->getCompressionStatsOutput() != nullptr) {
+        stats_file = new std::ofstream();
+        char filename[1024];
+        snprintf(filename, sizeof(filename), "%s.%d-%d", this->args->getCompressionStatsOutput(), this->from, this->to);
+        stats_file->open(filename, std::ios::out);
+    }
+
     // Write the payload
     // By writing the bottom layers first, we can write the file in one go, 
     // even with having to take into account that child pointers change due to node trimming
     for(int i = OCTREE_MAX_DEPTH-1; i >= 0 ; i--) {
-        this->writeLayerToDisk(trees, file, i, nodeCount[i], childPtrCount[i]);
+        if(stats_file) {
+            *stats_file << i << ",";
+        }
+        this->writeLayerToDisk(trees, file, i, nodeCount[i], childPtrCount[i], stats_file);
+        if(stats_file) {
+            *stats_file << std::endl;
+        }
     }
 
     std::cout << "Done, wrote to " << filename << std::endl;
@@ -204,7 +275,10 @@ void EncodingSequence::writeToDisk(LayeredOctreeProcessingContainer<octreeColorT
     file.close();
 }
 
-void EncodingSequence::writeLayerToDisk(LayeredOctreeProcessingContainer<octreeColorType>& trees, std::ofstream& file, int i, int nodeCount, int childPtrCount) {
+void EncodingSequence::writeLayerToDisk(LayeredOctreeProcessingContainer<octreeColorType>& trees, std::ofstream& file, int i, int nodeCount, int childPtrCount, std::ofstream* stats_file) {
+    unsigned char cookie = 0x13;
+    file.write(reinterpret_cast<const char*>(&cookie), sizeof(char));
+
     std::cout << "Writing layer ( " << trees.getLayerSize(i) << " nodes, " << nodeCount << " after trim)" << i << std::endl;
     long layerDistCount = 0;
     int measurementCounts = 0;
@@ -221,11 +295,11 @@ void EncodingSequence::writeLayerToDisk(LayeredOctreeProcessingContainer<octreeC
     int childPtrOffset = 0;
 
     // Data
-    unsigned char* r_data = new unsigned char[nodeCount];
-    unsigned char* g_data = new unsigned char[nodeCount];
-    unsigned char* b_data = new unsigned char[nodeCount];
+    unsigned char* y_data = new unsigned char[nodeCount];
+    unsigned char* u_data = new unsigned char[nodeCount];
+    unsigned char* v_data = new unsigned char[nodeCount];
 
-    unsigned char* child_count_data = new unsigned char[nodeCount];
+    unsigned char* child_flag_data = new unsigned char[nodeCount];
     unsigned char* leaf_flag_data = new unsigned char[nodeCount];
 
     int dataWrittenCount = 0;
@@ -238,22 +312,28 @@ void EncodingSequence::writeLayerToDisk(LayeredOctreeProcessingContainer<octreeC
             //std::cout << "Node " << x << ": NOT TRIMMED, written at " << payload->writtenOffset << std::endl;
             // Write the payload, converting glm::vec3 to rgb bytes
 
-            uint8_t r = static_cast<char>(payload->data.x*255.0f);
-            uint8_t g = static_cast<char>(payload->data.y*255.0f);
-            uint8_t b = static_cast<char>(payload->data.z*255.0f);
+            glm::vec3 rgb(
+                static_cast<float>(payload->data.x*255.0f),
+                static_cast<float>(payload->data.y*255.0f),
+                static_cast<float>(payload->data.z*255.0f)
+            );
+
+            glm::vec3 yuv = rgb_to_yuv(rgb);
+            
             /*
             file.write(reinterpret_cast<char*>(&r), sizeof(uint8_t));
             file.write(reinterpret_cast<char*>(&g), sizeof(uint8_t));
             file.write(reinterpret_cast<char*>(&b), sizeof(uint8_t));
             */
-            r_data[dataWrittenCount] = r;
-            g_data[dataWrittenCount] = g;
-            b_data[dataWrittenCount] = b;
+            y_data[dataWrittenCount] = static_cast<unsigned char>(yuv.x);
+            u_data[dataWrittenCount] = static_cast<unsigned char>(yuv.y);
+            v_data[dataWrittenCount] = static_cast<unsigned char>(yuv.z);
 
-            uint8_t childCount = node->getChildCount();
+            //uint8_t childCount = node->getChildCount();
+            uint8_t childFlags = node->getChildFlags();
             uint8_t leafFlags = node->getLeafFlags();
 
-            child_count_data[dataWrittenCount] = childCount;
+            child_flag_data[dataWrittenCount] = childFlags;
             leaf_flag_data[dataWrittenCount] = leafFlags;
             /*
             file.write(reinterpret_cast<char*>(&childCount), sizeof(uint8_t));
@@ -346,37 +426,58 @@ void EncodingSequence::writeLayerToDisk(LayeredOctreeProcessingContainer<octreeC
         }
     }
     if(dataWrittenCount != 0) {
+        // Dump some images
+        /*
+        if(i== 10) {
+            for(int i = 0; i < dataWrittenCount/(8*8); i++) {
+                dump_y_to_png(&y_data[i*8*8], 8, 8);
+                dump_u_to_png(&u_data[i*8*8], 8, 8);
+                dump_v_to_png(&v_data[i*8*8], 8, 8);
+            }
+        }*/
         // Write node data
         //file.write(reinterpret_cast<char*>(r_data), dataWrittenCount);
-        write_compressed(r_data, dataWrittenCount, file);
+        std::cout << "Writing colors using DCT:" << std::endl;
+        write_color_compressed(y_data, dataWrittenCount, file, stats_file);
         //file.write(reinterpret_cast<char*>(g_data), dataWrittenCount);
-        write_compressed(g_data, dataWrittenCount, file);
+        write_color_compressed(u_data, dataWrittenCount, file, stats_file);
         //file.write(reinterpret_cast<char*>(b_data), dataWrittenCount);
-        write_compressed(b_data, dataWrittenCount, file);
+        write_color_compressed(v_data, dataWrittenCount, file, stats_file);
+
+        std::cout << "Done writing colors" << std::endl;
 
         //file.write(child_count_data, dataWrittenCount);
-        write_compressed(child_count_data, dataWrittenCount, file);
-        write_compressed(leaf_flag_data, dataWrittenCount, file);
+        //write_compressed(child_count_data, dataWrittenCount, file);
+        write_compressed(child_flag_data, dataWrittenCount, file, stats_file);
+        //write_compressed(leaf_flag_data, dataWrittenCount, file, stats_file);
         //file.write(leaf_flag_data, dataWrittenCount);
+    } else {
+        std::cout << "No elements in layer " << i << " - skipping." << std::endl;
+    }
+    if(stats_file) {
+        *stats_file << "|,";
     }
     // Run time length encode
     if(childPtrCount != 0) {
-        int written_bytes = write_compressed(reinterpret_cast<unsigned char*>(childPointers), childPtrCount*sizeof(int), file);
+        int written_bytes = write_compressed(reinterpret_cast<unsigned char*>(childPointers), childPtrCount*sizeof(int), file, stats_file);
 
         //int outSize = srlec32((const unsigned char*)childPointers, childPtrOffset*sizeof(int), (unsigned char*)childRle);
         float percentage = (static_cast<float>(written_bytes) / static_cast<float>(childPtrOffset*sizeof(int))) * 100.0f;
-        std::cout << "compression reduced layer size from " << (childPtrOffset*sizeof(int)) << " to " << written_bytes << " ( " << percentage << " %)." << std::endl;
+        std::cout << "compression reduced layer ptr size from " << (childPtrOffset*sizeof(int)) << " to " << written_bytes << " ( " << percentage << " %)." << std::endl;
     } else {
-        std::cout << "Skipping layer " << i << " due to being 0 elements big" << std::endl;
+        if(stats_file) {
+            *stats_file << "0,0,0,";
+        }
+        std::cout << "Skipping child ptr for layer " << i << " due no children" << std::endl;
     }
     delete[] childPointers; 
 
-    delete[] r_data;
-    delete[] g_data;
-    delete[] b_data;
+    delete[] y_data;
+    delete[] u_data;
+    delete[] v_data;
 
-    delete[] child_count_data;
-    delete[] leaf_flag_data;
+    delete[] child_flag_data;
+    //delete[] leaf_flag_data;
 
     // Verify that we didn't write more nodes than we calculated
     if(writtenNodes > nodeCount) {

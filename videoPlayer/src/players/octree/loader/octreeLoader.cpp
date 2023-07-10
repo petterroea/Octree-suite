@@ -4,11 +4,16 @@
 #include <iostream>
 #include <vector>
 #include <chrono>
+#include <algorithm>
 
 #include <zlib.h>
 
 #include <rapidjson/document.h>
 #include <rapidjson/istreamwrapper.h>
+
+#include <dct2d/quantization.h>
+#include <dct2d/dct.h>
+#include <dct2d/yuv.h>
 
 OctreeLoader::OctreeLoader(LayeredOctreeAllocator* allocator): 
     lastLoadedFrameset(nullptr),
@@ -63,6 +68,24 @@ void OctreeLoader::startLoadingThread() {
     this->threadRunning = true;
 }
 
+void OctreeLoader::calculateLeafFlags(int layer, int index, LayeredOctreeContainerStatic<octreeColorType>* container) {
+    bool has_children = false;
+    auto node = container->getNode(layer, index);
+
+    uint8_t leaf_flags = 0;
+
+    for(int i = 0; i < OCTREE_SIZE; i++) {
+        auto child = node->getChildByIdx(i);
+        if(child != NO_NODE) {
+            if(!container->getNode(layer+1, child)->getChildFlags()) {
+                leaf_flags |= (1 << i);
+            }
+        }
+    }
+
+    node->setLeafFlags(leaf_flags);
+}
+
 void OctreeLoader::worker(OctreeLoader* me) {
     // Check if there is a frame to load. Should always be true at this point,
     // since the thread only runs if there is a frame to load.
@@ -92,6 +115,15 @@ void OctreeLoader::worker(OctreeLoader* me) {
         int headerSize;
         file.read((char*)&headerSize, sizeof(int));
 
+        //Load quantization settings
+        unsigned char quantization_start, quantization_end;
+        file.read(reinterpret_cast<char*>(&quantization_start), sizeof(quantization_start));
+        file.read(reinterpret_cast<char*>(&quantization_end), sizeof(quantization_start));
+
+        std::cout << "Read quantization settings: start " << quantization_start << " end " << quantization_end << std::endl;
+
+        build_quantization_lookup_table(quantization_start, quantization_end);
+
         if(magic != 0xfade1337) {
             std::cout << "Invalid magic number in file " << fileName << std::endl;
             throw std::runtime_error("Invalid magic number in file " + fileName);
@@ -116,6 +148,10 @@ void OctreeLoader::worker(OctreeLoader* me) {
         }
 
         file.close();
+        // Set leaf flags
+        for(int i = 0; i < layerSizes[0]; i++) {
+            me->calculateLeafFlags(0, i, container);
+        }
 
         // Upload to CUDA
         // TODO memory manage this shit
@@ -149,41 +185,68 @@ void OctreeLoader::worker(OctreeLoader* me) {
     me->ioMutex.unlock();
 }
 void OctreeLoader::loadLayer(int layer, std::vector<int>& layerSizes, LayeredOctreeContainerStatic<octreeColorType>* container, std::ifstream& file) {
+    unsigned char layerCookie;
+    file.read(reinterpret_cast<char*>(&layerCookie), sizeof(char));
+    if(layerCookie != 0x13) {
+        throw std::runtime_error("Invalid layer cookie");
+    }
+
     int layerSize = layerSizes[layer];
     std::cout << "Layer " << layer << " size " << layerSize << std::endl;
+    if(layerSize == 0) {
+        return;
+    }
 
     auto layerPtr = container->getNode(layer, 0);
     if(!layerPtr) {
         throw std::runtime_error("Failed to get layerPtr for layer " + std::to_string(layer));
     }
+    // Read the data
+    int readLength;
+
+    unsigned char* y_data = this->readCompressedImage(&readLength, file);
+    unsigned char* u_data = this->readCompressedImage(&readLength, file);
+    unsigned char* v_data = this->readCompressedImage(&readLength, file);
+
+    unsigned char* child_flag_data = this->readCompressed(&readLength, file);
+
+    int* childPointers = nullptr;
+    int childPtrIdx = 0;
+
+    int child_ptr_count = 0;
+    for(int i = 0; i < layerSize; ++i) {
+        child_ptr_count += std::popcount(child_flag_data[i]);
+    }
+    if(child_ptr_count != 0) {
+        childPointers = reinterpret_cast<int*>(this->readCompressed(&readLength, file));
+    }
+    int lastChild = 0;
+
     //For each node in the layer, read it and unpack it
     for(int n = 0; n < layerSize; n++) {
-        uint8_t r, g, b;
-
-        uint8_t childCount, childFlags, leafFlags;
-
-        file.read(reinterpret_cast<char*>(&r), sizeof(uint8_t));
-        file.read(reinterpret_cast<char*>(&g), sizeof(uint8_t));
-        file.read(reinterpret_cast<char*>(&b), sizeof(uint8_t));
-
-        file.read(reinterpret_cast<char*>(&childCount), sizeof(uint8_t));
-        file.read(reinterpret_cast<char*>(&leafFlags), sizeof(uint8_t));
-
-        *layerPtr = LayeredOctree<octreeColorType>(glm::vec3(
-            static_cast<float>(r)/255.0f, 
-            static_cast<float>(g)/255.0f, 
-            static_cast<float>(b)/255.0f
+        auto rgb = yuv_to_rgb(glm::vec3(
+            y_data[n],
+            u_data[n],
+            v_data[n]
         ));
 
-        layerPtr->setLeafFlags(leafFlags);
+        uint8_t childFlags = child_flag_data[n];
 
-        assert(childCount <= 8);
+        *layerPtr = LayeredOctree<octreeColorType>(glm::vec3(
+            static_cast<float>(rgb.r)/255.0f, 
+            static_cast<float>(rgb.g)/255.0f, 
+            static_cast<float>(rgb.b)/255.0f
+        ));
+
+        //layerPtr->setLeafFlags(leafFlags);
 
         // Load children
         for(int c = 0; c < OCTREE_SIZE; c++) {
             if((childFlags >> c) & 1) {
-                layer_ptr_type childPtr;
-                file.read(reinterpret_cast<char*>(&childPtr), sizeof(layer_ptr_type));
+                layer_ptr_type childPtr = childPointers[childPtrIdx++];
+                childPtr += lastChild;
+                lastChild = childPtr;
+                //file.read(reinterpret_cast<char*>(&childPtr), sizeof(layer_ptr_type));
                 if(childPtr > layerSizes[layer+1]) {
                     throw std::runtime_error("Invalid octree: node " + 
                         std::to_string(n) + 
@@ -194,13 +257,23 @@ void OctreeLoader::loadLayer(int layer, std::vector<int>& layerSizes, LayeredOct
                     );
                 }
 
-                layerPtr->setChild(childPtr, c, (leafFlags >> c & 1));
+                layerPtr->setChild(childPtr, c, 0);
             }
         }
         layerPtr++;
     }
     // Read the layer
     //file.read((char*)layer, layerSize * sizeof(LayeredOctree<octreeColorType>));
+    delete[] y_data;
+    delete[] u_data;
+    delete[] v_data;
+
+    delete[] child_flag_data;
+    //delete[] leaf_flag_data;
+
+    if(childPointers) {
+        delete[] childPointers;
+    }
 }
 
 OctreeFrameset* OctreeLoader::peekLoadedOctreeFrameset() {
@@ -227,9 +300,50 @@ OctreeFrameset* OctreeLoader::getNextLoadingFrameset() {
     return this->nextRequestedFrameset;
 }
 
+unsigned char* OctreeLoader::readCompressedImage(int* bufferLength, std::ifstream& file) {
+    int length, dctUnits;
+    file.read(reinterpret_cast<char*>(&length), sizeof(length));
+    file.read(reinterpret_cast<char*>(&dctUnits), sizeof(dctUnits));
+
+    std::cout << "Reading compressed image length " << length << " dct units " << dctUnits << std::endl;
+
+    unsigned char* data = new unsigned char[length];
+
+    //Read and decompress DCT
+    int read_size;
+    if(dctUnits > 0) {
+        int* quantizationArray = reinterpret_cast<int*>(this->readCompressed(&read_size, file));
+
+        float dctScratchpad[DCT_SIZE * DCT_SIZE];
+        for(int i = 0; i < dctUnits; i++) {
+            unsigned char* currentPtr = &data[i * DCT_SIZE * DCT_SIZE];
+            do_de_quantization(&quantizationArray[i * DCT_SIZE * DCT_SIZE], dctScratchpad);
+            reverse_dct(dctScratchpad, currentPtr);
+        }
+        delete[] quantizationArray;
+    }
+
+    // Read the last data
+    int remainingData = length - dctUnits * DCT_SIZE * DCT_SIZE;
+    std::cout << "Remaining " << remainingData << std::endl;
+    if(remainingData > 0) {
+        file.read(reinterpret_cast<char*>(&data[dctUnits*DCT_SIZE*DCT_SIZE]), remainingData);
+    }
+    return data;
+}
+
 unsigned char* OctreeLoader::readCompressed(int* bufferSize, std::ifstream& file) {
-    file.read(reinterpret_cast<char*> (bufferSize), sizeof(*bufferSize));
+    std::cout << "Reading compressed" << std::endl;
+    unsigned char cookie;
+
+    file.read(reinterpret_cast<char*>(&cookie), sizeof(cookie));
+    if(cookie != 0x69) {
+        throw std::runtime_error("Invalid cookie: " + std::to_string(cookie));
+    }
+
+    file.read(reinterpret_cast<char*> (bufferSize), sizeof(int));
     unsigned long originalSize = *bufferSize;
+
     int compressedSize = 0;
     file.read(reinterpret_cast<char*> (&compressedSize), sizeof(compressedSize));
     unsigned char* buffer = new unsigned char[*bufferSize];
@@ -246,6 +360,10 @@ unsigned char* OctreeLoader::readCompressed(int* bufferSize, std::ifstream& file
             throw std::runtime_error("Zlib error: too small output buffer: " + std::to_string(originalSize));
         }
         throw std::runtime_error("Failed to zlib compress: " + std::to_string(z_result));
+    }
+    file.read(reinterpret_cast<char*>(&cookie), sizeof(cookie));
+    if(cookie != 0x68) {
+        throw std::runtime_error("Invalid post-cookie: " + std::to_string(cookie));
     }
 
     std::cout << "Read " << compressedSize << " bytes, inflated to " << originalSize << std::endl;

@@ -13,6 +13,8 @@ public:
     float getTime() const;
     int getCurrentFrame() const;
 
+    void setFrameCount(int newFrameCount);
+
     void renderControls();
 
     void onFrameComplete();

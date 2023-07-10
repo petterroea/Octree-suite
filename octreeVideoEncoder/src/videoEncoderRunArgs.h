@@ -5,10 +5,17 @@ class VideoEncoderRunArgs {
     float tree_nearness_factor = 0.9999f;
     float color_importance_factor = 0.0001f;
 
-    int encodingThreadCount;
+    int encodingThreadCount = 1;
     int chunkConcurrencyCount = 1;
 
+    int quantizationStart = 4;
+    int quantizationEnd = 40;
+
     int encodingChunkSize = 10;
+
+    bool shouldSkipReduction = false;
+
+    char* compressionStatsOutput = nullptr;
 public:
     VideoEncoderRunArgs();
 
@@ -31,4 +38,16 @@ public:
 
     int getEncodingChunkSize() const;
     void setEncodingChunkSize(int chunksize);
+
+    int getQuantizationStart() const;
+    void setQuantizationStart(int quantizationStart);
+
+    int getQuantizationEnd() const;
+    void setQuantizationEnd(int quantizationEnd);
+
+    bool getShouldSkipReduction() const;
+    void setShouldSkipReduction(bool shouldSkipReduction);
+
+    char* getCompressionStatsOutput() const;
+    void setCompressionStatsOutput(char* compressionStatsOutput);
 };

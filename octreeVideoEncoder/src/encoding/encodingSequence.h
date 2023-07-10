@@ -30,8 +30,9 @@ class EncodingSequence {
 
     void populateHashmap(int depth, int roodIdx, LayeredOctreeProcessingContainer<octreeColorType>& octreeContainer, int max_depth);
     void writeToDisk(LayeredOctreeProcessingContainer<octreeColorType>& trees, std::string filename);
-    void writeLayerToDisk(LayeredOctreeProcessingContainer<octreeColorType>& tree, std::ofstream& file, int i, int nodeCount, int childPtrCount);
-    int write_compressed(unsigned char* data, int length, std::ofstream& file);
+    void writeLayerToDisk(LayeredOctreeProcessingContainer<octreeColorType>& tree, std::ofstream& file, int i, int nodeCount, int childPtrCount, std::ofstream* stats_file);
+    int write_compressed(unsigned char* data, int length, std::ofstream& file, std::ofstream* stats_file);
+    void write_color_compressed(unsigned char* colors, int length, std::ofstream& file, std::ofstream* stats_file);
 public:
     EncodingSequence(OctreeSequence* sequence, int from, int to, std::string fullPath, VideoEncoderRunArgs* args);
     ~EncodingSequence();
